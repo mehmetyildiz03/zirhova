@@ -506,6 +506,58 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
+
+// PWA installation helpers
+let deferredInstallPrompt = null;
+const installBtn = document.querySelector('#installBtn');
+const installHint = document.querySelector('#installHint');
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isStandalone =
+  window.matchMedia('(display-mode: standalone)').matches ||
+  window.navigator.standalone === true;
+
+function showInstallHint(message) {
+  if (!installHint) return;
+  installHint.textContent = message;
+  installHint.hidden = false;
+}
+
+if (installBtn && !isStandalone) {
+  if (isIOS) {
+    installBtn.hidden = false;
+    installBtn.textContent = "IPHONE'A EKLE";
+  }
+
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    installBtn.hidden = false;
+    installBtn.textContent = 'TELEFONA YÜKLE';
+  });
+
+  installBtn.addEventListener('click', async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      if (choice.outcome === 'accepted') installBtn.hidden = true;
+      return;
+    }
+
+    if (isIOS) {
+      showInstallHint("Safari'de Paylaş simgesine dokun → Ana Ekrana Ekle → Ekle.");
+      return;
+    }
+
+    showInstallHint("Tarayıcı menüsünden 'Uygulamayı yükle' veya 'Ana ekrana ekle' seçeneğini kullan.");
+  });
+
+  window.addEventListener('appinstalled', () => {
+    installBtn.hidden = true;
+    if (installHint) installHint.hidden = true;
+  });
+}
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
