@@ -1,0 +1,9 @@
+{
+  "name": "ZIRHOVA Prototype",
+  "short_name": "ZIRHOVA",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#070b10",
+  "theme_color": "#0c1117",
+  "orientation": "any"
+}
