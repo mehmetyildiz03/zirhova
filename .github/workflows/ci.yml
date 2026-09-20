@@ -1,0 +1,25 @@
+name: ZIRHOVA CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript syntax
+        run: node --check src/game.js
+      - name: Validate web manifest JSON
+        run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest ok')"
+      - name: Verify required PWA files
+        run: |
+          test -f index.html
+          test -f styles.css
+          test -f sw.js
+          test -f icons/icon-192.png
+          test -f icons/icon-512.png
+          test -f icons/apple-touch-icon.png
