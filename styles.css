@@ -30,6 +30,10 @@ canvas { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; backgro
 .panel h2 { margin: 8px 0 10px; font-size: clamp(24px, 5vw, 36px); }
 .panel p { color: #bdc8d4; line-height: 1.5; margin: 0 0 18px; }
 .panel button { border: 0; border-radius: 10px; padding: 13px 18px; font-weight: 900; letter-spacing: .08em; background: var(--accent); color: #17170d; cursor: pointer; }
+.panel-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.panel button.secondary { background: #1a2836; color: #eef4f7; border: 1px solid #38506a; }
+.install-hint { margin: 12px 0 0 !important; padding: 10px 12px; border: 1px solid #314054; border-radius: 10px; background: #0b1219; font-size: 13px; }
+[hidden] { display: none !important; }
 
 .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: center; margin-top: 14px; user-select: none; -webkit-user-select: none; }
 .dpad { width: min(54vw, 260px); aspect-ratio: 1; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 6px; }
