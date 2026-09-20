@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0c1117" />
+  <title>ZIRHOVA — Prototype</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">WORKING TITLE</div>
+        <h1>ZIRHOVA</h1>
+      </div>
+      <div class="hud" aria-live="polite">
+        <span>SKOR <b id="score">0</b></span>
+        <span>DALGA <b id="wave">1</b></span>
+        <span>CAN <b id="lives">3</b></span>
+        <span>ÜS <b id="baseHp">5</b></span>
+      </div>
+    </header>
+
+    <section class="game-wrap">
+      <canvas id="game" width="768" height="768" aria-label="ZIRHOVA oyun alanı"></canvas>
+
+      <div class="overlay show" id="introOverlay">
+        <div class="panel">
+          <div class="kicker">ORİJİNAL TOP-DOWN TANK PROTOTİPİ</div>
+          <h2>Üssü koru. Hattı kır.</h2>
+          <p>WASD / ok tuşları ile hareket et, <strong>Space</strong> ile ateş et. Mobilde ekrandaki kontrolleri kullan.</p>
+          <button id="startBtn">OYUNA BAŞLA</button>
+        </div>
+      </div>
+
+      <div class="overlay" id="gameOverOverlay">
+        <div class="panel">
+          <div class="kicker">SAVUNMA HATTI DÜŞTÜ</div>
+          <h2 id="gameOverTitle">Görev başarısız</h2>
+          <p id="gameOverText">Skor: 0</p>
+          <button id="restartBtn">YENİDEN BAŞLA</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="controls" aria-label="Dokunmatik oyun kontrolleri">
+      <div class="dpad">
+        <button class="ctrl up" data-action="up" aria-label="Yukarı">▲</button>
+        <button class="ctrl left" data-action="left" aria-label="Sol">◀</button>
+        <button class="ctrl center" aria-hidden="true">•</button>
+        <button class="ctrl right" data-action="right" aria-label="Sağ">▶</button>
+        <button class="ctrl down" data-action="down" aria-label="Aşağı">▼</button>
+      </div>
+      <div class="action-pad">
+        <button class="fire" data-action="fire" aria-label="Ateş">ATEŞ</button>
+      </div>
+    </section>
+
+    <footer class="footer-note">
+      <span>v0.1 — özgün prototip</span>
+      <span>Harici görsel/ses asseti kullanılmadı.</span>
+    </footer>
+  </main>
+
+  <script type="module" src="./src/game.js"></script>
+</body>
+</html>
