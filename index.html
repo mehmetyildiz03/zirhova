@@ -4,8 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
   <meta name="theme-color" content="#0c1117" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ZIRHOVA" />
   <title>ZIRHOVA — Prototype</title>
   <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -31,7 +36,11 @@
           <div class="kicker">ORİJİNAL TOP-DOWN TANK PROTOTİPİ</div>
           <h2>Üssü koru. Hattı kır.</h2>
           <p>WASD / ok tuşları ile hareket et, <strong>Space</strong> ile ateş et. Mobilde ekrandaki kontrolleri kullan.</p>
-          <button id="startBtn">OYUNA BAŞLA</button>
+          <div class="panel-actions">
+            <button id="startBtn">OYUNA BAŞLA</button>
+            <button id="installBtn" class="secondary" hidden>TELEFONA YÜKLE</button>
+          </div>
+          <p id="installHint" class="install-hint" hidden></p>
         </div>
       </div>
 
