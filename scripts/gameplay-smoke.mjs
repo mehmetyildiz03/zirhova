@@ -38,40 +38,33 @@ if (!Number.isFinite(remaining) || remaining <= 0) {
 const dpad = await page.locator('#directionPad').boundingBox();
 if (!dpad) throw new Error('Direction pad missing');
 
-await page.locator('#directionPad').dispatchEvent('pointerdown', {
-  pointerId: 11,
-  pointerType: 'touch',
-  clientX: dpad.x + dpad.width / 2,
-  clientY: dpad.y + dpad.height * 0.14,
-  buttons: 1,
-});
-
+await page.mouse.move(
+  dpad.x + dpad.width / 2,
+  dpad.y + dpad.height * 0.14
+);
+await page.mouse.down();
 await page.waitForTimeout(80);
+
 const upActive = await page.locator('.dir-up').evaluate(el => el.classList.contains('active'));
 if (!upActive) throw new Error('D-pad UP direction did not activate');
 
-await page.locator('#directionPad').dispatchEvent('pointerup', {
-  pointerId: 11,
-  pointerType: 'touch',
-  clientX: dpad.x + dpad.width / 2,
-  clientY: dpad.y + dpad.height * 0.14,
-  buttons: 0,
-});
+await page.mouse.up();
 
-// Exercise fire hold/release.
-await page.locator('.fire').dispatchEvent('pointerdown', {
-  pointerId: 12,
-  pointerType: 'touch',
-  buttons: 1,
-});
+// Exercise fire hold/release through a browser-generated pointer sequence.
+const fireBox = await page.locator('.fire').boundingBox();
+if (!fireBox) throw new Error('Fire control missing');
+
+await page.mouse.move(
+  fireBox.x + fireBox.width / 2,
+  fireBox.y + fireBox.height / 2
+);
+await page.mouse.down();
 await page.waitForTimeout(120);
+
 const fireActive = await page.locator('.fire').evaluate(el => el.classList.contains('active'));
 if (!fireActive) throw new Error('Fire control did not activate');
-await page.locator('.fire').dispatchEvent('pointerup', {
-  pointerId: 12,
-  pointerType: 'touch',
-  buttons: 0,
-});
+
+await page.mouse.up();
 
 await page.waitForTimeout(1600);
 
