@@ -12,7 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check JavaScript syntax
-        run: node --check src/game.js
+        run: |
+          node --check src/game.js
+          node --check src/levels.js
       - name: Validate web manifest JSON
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest ok')"
       - name: Verify required PWA files
