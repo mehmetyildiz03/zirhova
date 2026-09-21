@@ -1428,80 +1428,70 @@ document.querySelectorAll('[data-action="fire"]').forEach(button => {
   button.addEventListener('lostpointercapture', end);
 });
 
-const movePad = document.querySelector('#movePad');
-const moveOrigin = document.querySelector('#moveOrigin');
-const moveKnob = document.querySelector('#moveKnob');
-let movePointerId = null;
-let moveStart = null;
+const directionPad = document.querySelector('#directionPad');
+let directionPointerId = null;
 
-function updateMovePad(event) {
-  if (!movePad || movePointerId !== event.pointerId || !moveStart) return;
+function directionFromPadPoint(event) {
+  if (!directionPad) return null;
 
-  const rect = movePad.getBoundingClientRect();
-  const localX = event.clientX - rect.left;
-  const localY = event.clientY - rect.top;
-  const dx = localX - moveStart.x;
-  const dy = localY - moveStart.y;
-  const distance = Math.hypot(dx, dy);
-  const maxRadius = Math.min(rect.width, rect.height) * 0.24;
-  const scale = distance > maxRadius ? maxRadius / distance : 1;
-  const knobX = dx * scale;
-  const knobY = dy * scale;
+  const rect = directionPad.getBoundingClientRect();
+  const x = event.clientX - rect.left - rect.width / 2;
+  const y = event.clientY - rect.top - rect.height / 2;
+  const deadZone = Math.min(rect.width, rect.height) * 0.13;
 
-  moveKnob.style.transform = `translate(calc(-50% + ${knobX}px), calc(-50% + ${knobY}px))`;
+  if (Math.hypot(x, y) < deadZone) return null;
+  return Math.abs(x) > Math.abs(y)
+    ? (x > 0 ? 'right' : 'left')
+    : (y > 0 ? 'down' : 'up');
+}
 
-  if (distance < 12) {
-    setMoveDirection(null);
-    return;
-  }
+function paintDirectionPad(dir) {
+  document.querySelectorAll('.dir-cap[data-dir]').forEach(cap => {
+    cap.classList.toggle('active', cap.dataset.dir === dir);
+  });
+  directionPad?.classList.toggle('engaged', Boolean(dir));
+}
 
-  const dir = Math.abs(dx) > Math.abs(dy)
-    ? (dx > 0 ? 'right' : 'left')
-    : (dy > 0 ? 'down' : 'up');
-
+function updateDirectionPad(event) {
+  if (directionPointerId !== event.pointerId) return;
+  const dir = directionFromPadPoint(event);
   setMoveDirection(dir);
+  paintDirectionPad(dir);
 }
 
 function resetMovePadVisual() {
-  if (!moveOrigin || !moveKnob) return;
-  moveOrigin.classList.remove('active');
-  moveKnob.style.transform = 'translate(-50%, -50%)';
-  movePointerId = null;
-  moveStart = null;
+  paintDirectionPad(null);
+  directionPointerId = null;
 }
 
-if (movePad) {
-  movePad.addEventListener('pointerdown', event => {
+if (directionPad) {
+  directionPad.addEventListener('contextmenu', event => event.preventDefault());
+
+  directionPad.addEventListener('pointerdown', event => {
     event.preventDefault();
-    if (movePointerId !== null) return;
+    if (directionPointerId !== null) return;
 
-    const rect = movePad.getBoundingClientRect();
-    const margin = Math.min(44, rect.width * 0.22);
-    const x = clamp(event.clientX - rect.left, margin, rect.width - margin);
-    const y = clamp(event.clientY - rect.top, margin, rect.height - margin);
-
-    movePointerId = event.pointerId;
-    moveStart = { x, y };
-    movePad.setPointerCapture?.(event.pointerId);
-
-    moveOrigin.style.left = `${x}px`;
-    moveOrigin.style.top = `${y}px`;
-    moveOrigin.classList.add('active');
-    updateMovePad(event);
+    directionPointerId = event.pointerId;
+    directionPad.setPointerCapture?.(event.pointerId);
+    updateDirectionPad(event);
   });
 
-  movePad.addEventListener('pointermove', updateMovePad);
+  directionPad.addEventListener('pointermove', event => {
+    if (directionPointerId !== event.pointerId) return;
+    event.preventDefault();
+    updateDirectionPad(event);
+  });
 
-  const endMove = event => {
-    if (movePointerId !== event.pointerId) return;
+  const endDirection = event => {
+    if (directionPointerId !== event.pointerId) return;
     event.preventDefault();
     setMoveDirection(null);
     resetMovePadVisual();
   };
 
-  movePad.addEventListener('pointerup', endMove);
-  movePad.addEventListener('pointercancel', endMove);
-  movePad.addEventListener('lostpointercapture', endMove);
+  directionPad.addEventListener('pointerup', endDirection);
+  directionPad.addEventListener('pointercancel', endDirection);
+  directionPad.addEventListener('lostpointercapture', endDirection);
 }
 
 document.querySelector('#startBtn').addEventListener('click', resetGame);
