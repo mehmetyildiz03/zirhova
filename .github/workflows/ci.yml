@@ -36,3 +36,4 @@ jobs:
           export CHROME_PATH="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           test -n "$CHROME_PATH"
           node scripts/responsive-smoke.mjs
+          node scripts/gameplay-smoke.mjs
