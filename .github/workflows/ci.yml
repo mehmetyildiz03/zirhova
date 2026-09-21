@@ -17,6 +17,8 @@ jobs:
           node --check src/levels.js
       - name: Validate web manifest JSON
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest ok')"
+      - name: Validate level data
+        run: node scripts/validate-levels.mjs
       - name: Verify required PWA files
         run: |
           test -f index.html
