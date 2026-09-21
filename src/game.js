@@ -1007,7 +1007,85 @@ function chooseUpgrade(upgrade) {
   loadStage({ preserveBaseHp: true, announce: true });
 }
 
+function spawnPowerup(x, y) {
+  const keys = Object.keys(POWERUP_TYPES);
+  const type = keys[Math.floor(Math.random() * keys.length)];
+  state.powerups.push(new PowerUp(x, y, type));
+  showNotice(`${POWERUP_TYPES[type].name} SAHADA`, 0.8);
+  tone(760, 0.06, 'square', 0.022);
+}
+
+function applyPowerup(type) {
+  const spec = POWERUP_TYPES[type];
+
+  if (type === 'armor') {
+    if (state.player) state.player.spawnShield = Math.max(state.player.spawnShield, 8);
+  } else if (type === 'emp') {
+    state.enemyFreeze = Math.max(state.enemyFreeze, 5);
+  } else if (type === 'artillery') {
+    for (const enemy of state.enemies) {
+      if (enemy.dead) continue;
+      enemy.spawnShield = 0;
+      enemy.hit(2);
+    }
+    addShake(8);
+  } else if (type === 'fortify') {
+    state.baseShield = Math.max(state.baseShield, 12);
+  } else if (type === 'repair') {
+    if (state.base) state.base.hp = Math.min(MAX_BASE_HP, state.base.hp + 2);
+  } else if (type === 'reserve') {
+    state.lives = Math.min(6, state.lives + 1);
+  }
+
+  showNotice(spec.name, 1.05);
+  tone(920, 0.07, 'square', 0.03);
+  haptic(14);
+  syncUI();
+}
+
+function updatePowerups(dt) {
+  if (!state.powerups.length) return;
+
+  for (const powerup of state.powerups) {
+    powerup.update(dt);
+    if (!powerup.dead && state.player && !state.player.dead && hit(powerup, state.player)) {
+      powerup.dead = true;
+      applyPowerup(powerup.type);
+    }
+  }
+
+  state.powerups = state.powerups.filter(powerup => !powerup.dead);
+}
+
+function resolveBulletCollisions() {
+  for (let i = 0; i < state.bullets.length; i++) {
+    const a = state.bullets[i];
+    if (a.dead) continue;
+
+    for (let j = i + 1; j < state.bullets.length; j++) {
+      const b = state.bullets[j];
+      if (b.dead || a.team === b.team) continue;
+      if (!hit(a, b)) continue;
+
+      a.dead = true;
+      b.dead = true;
+      const x = (a.cx + b.cx) / 2;
+      const y = (a.cy + b.cy) / 2;
+      debris(x, y, '#fff2a6', 5);
+      tone(260, 0.025, 'square', 0.015);
+      break;
+    }
+  }
+}
+
 function damageBase() {
+  if (state.baseShield > 0) {
+    state.base.hitFlash = 0.12;
+    debris(state.base.cx, state.base.cy, '#75d5a7', 5);
+    tone(310, 0.055, 'square', 0.022);
+    return;
+  }
+
   state.base.hp--;
   state.base.hitFlash = 0.18;
   addShake(7);
@@ -1024,6 +1102,7 @@ function handleDeaths() {
     if (!enemy.dead || enemy.counted) continue;
     enemy.counted = true;
     state.score += enemy.spec.score;
+    if (enemy.carrier) spawnPowerup(enemy.cx, enemy.cy);
     burst(enemy.cx, enemy.cy, enemy.spec.color, enemy.type === 'heavy' ? 22 : 15);
     addShake(enemy.type === 'heavy' ? 7 : 3.5);
     syncUI();
@@ -1104,7 +1183,7 @@ function canOccupy(entity, x, y, { ignoreTanks = false } = {}) {
   for (let ty = top; ty <= bottom; ty++) {
     for (let tx = left; tx <= right; tx++) {
       const tile = state.grid[ty]?.[tx];
-      if (tile && !['floor', 'brush'].includes(tile.type)) return false;
+      if (tile && !['floor', 'brush', 'ice'].includes(tile.type)) return false;
     }
   }
 
@@ -1225,6 +1304,7 @@ function findPathDirection(source, target, brickCost = 4) {
       if (tile.type === 'brick') cost = brickCost;
       else if (tile.type === 'steel' || tile.type === 'water') continue;
       else if (tile.type === 'brush') cost = 1.08;
+      else if (tile.type === 'ice') cost = 1.04;
 
       const key = cellKey(nx, ny);
       const tentative = current.g + cost;
@@ -1295,13 +1375,18 @@ function update(dt) {
 
   state.noticeTimer = Math.max(0, state.noticeTimer - dt);
   state.shake = Math.max(0, state.shake - dt * 18);
+  state.enemyFreeze = Math.max(0, state.enemyFreeze - dt);
+  state.baseShield = Math.max(0, state.baseShield - dt);
 
+  updateSpawnQueue(dt);
   state.base?.update(dt);
   state.player?.update(dt);
   for (const enemy of state.enemies) enemy.update(dt);
   for (const bullet of state.bullets) bullet.update(dt);
+  resolveBulletCollisions();
   state.bullets = state.bullets.filter(bullet => !bullet.dead);
 
+  updatePowerups(dt);
   updateParticles(dt);
   handleDeaths();
   advanceWaveIfNeeded(dt);
@@ -1435,6 +1520,7 @@ function draw() {
   drawFloor();
   drawTerrain();
   state.base?.draw();
+  for (const powerup of state.powerups) powerup.draw();
   for (const bullet of state.bullets) bullet.draw();
   for (const enemy of state.enemies) enemy.draw();
   state.player?.draw();
@@ -1451,6 +1537,10 @@ function syncUI() {
   UI.wave.textContent = `${state.waveInStage}/${WAVES_PER_STAGE}`;
   UI.lives.textContent = state.lives;
   UI.baseHp.textContent = state.base?.hp ?? MAX_BASE_HP;
+  if (UI.remaining) {
+    const active = state.enemies.filter(enemy => !enemy.dead).length;
+    UI.remaining.textContent = active + state.pendingSpawns;
+  }
   if (UI.bestRun) {
     UI.bestRun.textContent = `En iyi: B${progress.bestStage} · ${progress.bestScore} puan`;
   }
