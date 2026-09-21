@@ -191,6 +191,13 @@ const UPGRADES = [
     available() { return state.base && state.base.hp < MAX_BASE_HP; },
     apply() { state.base.hp = Math.min(MAX_BASE_HP, state.base.hp + 2); },
   },
+  {
+    id: 'reserve',
+    title: 'YEDEK MÜRETTEBAT',
+    description: '+1 yedek tank',
+    repeatable: true,
+    apply() { state.lives = Math.min(6, state.lives + 1); },
+  },
 ];
 
 let audioCtx = null;
