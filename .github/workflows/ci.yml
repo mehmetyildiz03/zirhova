@@ -27,3 +27,12 @@ jobs:
           test -f icons/icon-192.png
           test -f icons/icon-512.png
           test -f icons/apple-touch-icon.png
+
+      - name: Responsive phone/tablet smoke test
+        run: |
+          npm install --no-save playwright-core
+          python3 -m http.server 4173 >/tmp/zirhova-http.log 2>&1 &
+          sleep 2
+          export CHROME_PATH="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_PATH"
+          node scripts/responsive-smoke.mjs
