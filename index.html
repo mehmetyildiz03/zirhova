@@ -37,7 +37,7 @@
         <div class="panel">
           <div class="kicker">ORİJİNAL TOP-DOWN TANK ARCADE</div>
           <h2>Üssü koru. Hattı kır.</h2>
-          <p>WASD / ok tuşları ile hareket et, <strong>Space</strong> ile ateş et. Mobilde soldaki hareket alanını sürükle, sağdaki ATEŞ düğmesini kullan. Her bölüm 3 dalgadan oluşur; bölüm sonunda bir modül seçersin.</p>
+          <p>WASD / ok tuşları ile hareket et, <strong>Space</strong> ile ateş et. Mobilde soldaki yön pedine dokunup parmağını kaydır; sağdaki ATEŞ düğmesini basılı tutabilirsin. Her bölüm 3 dalgadan oluşur; bölüm sonunda bir modül seçersin.</p>
           <div class="panel-actions">
             <button id="startBtn">OYUNA BAŞLA</button>
             <button id="installBtn" class="secondary" hidden>TELEFONA YÜKLE</button>
@@ -74,23 +74,24 @@
       </div>
     </section>
 
-    <section class="controls" aria-label="Dokunmatik oyun kontrolleri">
-      <div class="move-pad" id="movePad" aria-label="Hareket alanı">
-        <span class="move-hint move-up" aria-hidden="true">▲</span>
-        <span class="move-hint move-left" aria-hidden="true">◀</span>
-        <span class="move-hint move-right" aria-hidden="true">▶</span>
-        <span class="move-hint move-down" aria-hidden="true">▼</span>
-        <div class="move-origin" id="moveOrigin" aria-hidden="true">
-          <div class="move-knob" id="moveKnob"></div>
-        </div>
+    <section class="controls" id="touchControls" aria-label="Dokunmatik oyun kontrolleri">
+      <div class="direction-pad" id="directionPad" role="application" aria-label="Hareket yönü">
+        <span class="dir-cap dir-up" data-dir="up" aria-hidden="true">▲</span>
+        <span class="dir-cap dir-left" data-dir="left" aria-hidden="true">◀</span>
+        <span class="dir-center" aria-hidden="true"></span>
+        <span class="dir-cap dir-right" data-dir="right" aria-hidden="true">▶</span>
+        <span class="dir-cap dir-down" data-dir="down" aria-hidden="true">▼</span>
       </div>
       <div class="action-pad">
-        <button class="fire" data-action="fire" aria-label="Ateş">ATEŞ</button>
+        <button class="fire" data-action="fire" aria-label="Ateş">
+          <span class="fire-dot" aria-hidden="true"></span>
+          <span>ATEŞ</span>
+        </button>
       </div>
     </section>
 
     <footer class="footer-note">
-      <span>v0.3 — savaş hissi / AI rolleri / modüller</span>
+      <span>v0.3.1 — mobil/tablet kontrol revizyonu</span>
       <span id="bestRun">En iyi: B1 · 0 puan</span>
     </footer>
   </main>
