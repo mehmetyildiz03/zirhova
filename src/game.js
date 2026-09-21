@@ -10,6 +10,7 @@ const UI = {
   wave: document.querySelector('#wave'),
   lives: document.querySelector('#lives'),
   baseHp: document.querySelector('#baseHp'),
+  remaining: document.querySelector('#remaining'),
   bestRun: document.querySelector('#bestRun'),
   intro: document.querySelector('#introOverlay'),
   gameOver: document.querySelector('#gameOverOverlay'),
@@ -31,6 +32,8 @@ const WAVES_PER_STAGE = 3;
 const MAX_BASE_HP = 5;
 const TANK_SIZE = 34;
 const MAX_MOVE_STEP = 5;
+const MAX_ACTIVE_ENEMIES = 4;
+const POWERUP_LIFETIME = 11;
 
 canvas.width = WORLD;
 canvas.height = WORLD;
@@ -45,6 +48,8 @@ const COLORS = {
   steelLight: '#9aabba',
   water: '#17465f',
   waterLine: '#2c7797',
+  ice: '#9dd8e8',
+  iceLine: '#d9f6ff',
   brush: '#234f39',
   brushLight: '#397255',
   player: '#e8d35b',
@@ -667,6 +672,11 @@ const state = {
   upgradeLevels: {},
   shake: 0,
   runToken: 0,
+  powerups: [],
+  enemyFreeze: 0,
+  baseShield: 0,
+  waveSpawnQueue: [],
+  spawnClock: 0,
 };
 
 function currentLevel() {
@@ -686,6 +696,7 @@ function buildMap(level) {
   for (const [x, y] of level.bricks) grid[y][x] = makeTile('brick');
   for (const [x, y] of level.steel) grid[y][x] = makeTile('steel');
   for (const [x, y] of level.water) grid[y][x] = makeTile('water');
+  for (const [x, y] of level.ice || []) grid[y][x] = makeTile('ice');
   for (const [x, y] of level.brush || []) grid[y][x] = makeTile('brush');
 
   for (const [x, y] of level.enemySpawns) {
@@ -731,6 +742,11 @@ function resetGame() {
     modifiers: defaultModifiers(),
     upgradeLevels: {},
     shake: 0,
+    powerups: [],
+    enemyFreeze: 0,
+    baseShield: 0,
+    waveSpawnQueue: [],
+    spawnClock: 0,
   });
 
   loadStage({ preserveBaseHp: false, announce: true });
@@ -749,7 +765,11 @@ function loadStage({ preserveBaseHp = true, announce = true } = {}) {
   state.grid = buildMap(level);
   state.enemies = [];
   state.bullets = [];
+  state.powerups = [];
   state.pendingSpawns = 0;
+  state.waveSpawnQueue = [];
+  state.spawnClock = 0;
+  state.enemyFreeze = 0;
   state.waveTimer = 0;
 
   const bp = gridEntityPosition(level.baseSpawn, 42);
