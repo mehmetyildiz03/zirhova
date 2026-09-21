@@ -1,7 +1,7 @@
 import { LEVELS } from '../src/levels.js';
 
 const SIZE = 16;
-const terrainKeys = ['bricks', 'steel', 'water', 'brush'];
+const terrainKeys = ['bricks', 'steel', 'water', 'ice', 'brush'];
 
 function key([x, y]) {
   return `${x},${y}`;
