@@ -68,7 +68,7 @@ h1 {
 
 .hud {
   display: grid;
-  grid-template-columns: repeat(6, auto);
+  grid-template-columns: repeat(7, auto);
   gap: 6px;
   font-size: 11px;
   color: var(--muted);
@@ -409,7 +409,7 @@ canvas {
 
   .hud {
     width: 100%;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 3px;
     font-size: 9px;
   }
@@ -569,7 +569,7 @@ canvas {
 
   .hud {
     margin: 0 auto;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 3px;
     width: 100%;
     padding: 3px;
