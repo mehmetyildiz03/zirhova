@@ -786,26 +786,43 @@ function spawnWave() {
   const level = currentLevel();
   const difficulty = state.wave + Math.floor((state.stage - 1) * 0.8);
   const count = Math.min(3 + state.waveInStage + Math.floor(state.stage / 2), 11);
-  const token = state.runToken;
+  const carrierIndex = Math.min(count - 1, Math.max(1, Math.floor(count * 0.55)));
 
-  state.pendingSpawns += count;
+  state.waveSpawnQueue = Array.from({ length: count }, (_, i) => ({
+    spawn: level.enemySpawns[i % level.enemySpawns.length],
+    type: chooseEnemyType(difficulty, i, count),
+    carrier: i === carrierIndex,
+  }));
+  state.pendingSpawns = state.waveSpawnQueue.length;
+  state.spawnClock = 0;
+  syncUI();
+}
 
-  for (let i = 0; i < count; i++) {
-    setTimeout(() => {
-      if (token !== state.runToken || !state.running || state.gameOver) return;
+function updateSpawnQueue(dt) {
+  if (!state.waveSpawnQueue.length || !state.running || state.gameOver) return;
 
-      const spawn = level.enemySpawns[i % level.enemySpawns.length];
-      const pos = gridEntityPosition(spawn, TANK_SIZE);
-      const type = chooseEnemyType(difficulty, i, count);
-      const enemy = new Tank(pos.x, pos.y, 'enemy', type);
+  state.spawnClock -= dt;
+  if (state.spawnClock > 0) return;
 
-      const placement = findSpawnPlacement(enemy);
-      enemy.x = placement.x;
-      enemy.y = placement.y;
-      state.enemies.push(enemy);
-      state.pendingSpawns = Math.max(0, state.pendingSpawns - 1);
-    }, i * 330);
+  const activeCount = state.enemies.filter(enemy => !enemy.dead).length;
+  if (activeCount >= MAX_ACTIVE_ENEMIES) {
+    state.spawnClock = 0.14;
+    return;
   }
+
+  const next = state.waveSpawnQueue.shift();
+  const pos = gridEntityPosition(next.spawn, TANK_SIZE);
+  const enemy = new Tank(pos.x, pos.y, 'enemy', next.type);
+  enemy.carrier = next.carrier;
+
+  const placement = findSpawnPlacement(enemy);
+  enemy.x = placement.x;
+  enemy.y = placement.y;
+  state.enemies.push(enemy);
+
+  state.pendingSpawns = state.waveSpawnQueue.length;
+  state.spawnClock = 0.42;
+  syncUI();
 }
 
 function findSpawnPlacement(enemy) {
