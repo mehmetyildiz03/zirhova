@@ -935,7 +935,8 @@ function advanceWaveIfNeeded(dt) {
   }
 
   state.waveTimer += dt;
-  if (state.waveTimer <= 1.0) return;
+  const transitionDelay = state.powerups.length ? 2.8 : 1.0;
+  if (state.waveTimer <= transitionDelay) return;
   state.waveTimer = 0;
 
   if (state.waveInStage >= WAVES_PER_STAGE) {
