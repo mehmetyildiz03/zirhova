@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.3.1-controls';
+const CACHE = 'zirhova-v0.4-field';
 const ASSETS = [
   './',
   './index.html',
