@@ -152,6 +152,15 @@ function defaultModifiers() {
   };
 }
 
+const POWERUP_TYPES = {
+  armor: { name: 'REAKTİF ZIRH', glyph: 'Z', color: '#64d8ff' },
+  emp: { name: 'EMP DARBESİ', glyph: 'E', color: '#8cb8ff' },
+  artillery: { name: 'TOPÇU DESTEĞİ', glyph: 'T', color: '#ff9b6a' },
+  fortify: { name: 'İSTİHKÂM KİTİ', glyph: 'İ', color: '#75d5a7' },
+  repair: { name: 'SAHA ONARIMI', glyph: '+', color: '#7ee0a5' },
+  reserve: { name: 'YEDEK MÜRETTEBAT', glyph: '1', color: '#f0d96b' },
+};
+
 const UPGRADES = [
   {
     id: 'tracks',
@@ -247,6 +256,8 @@ class Tank extends RectEntity {
     this.decisionClock = 0;
     this.stuckClock = 0;
     this.spawnShield = team === 'player' ? 1.25 : 0.52;
+    this.carrier = false;
+    this.momentumDir = this.dir;
     this.muzzleFlash = 0;
     this.hitFlash = 0;
     this.recoil = 0;
@@ -259,6 +270,8 @@ class Tank extends RectEntity {
     this.hitFlash = Math.max(0, this.hitFlash - dt);
     this.recoil = Math.max(0, this.recoil - dt * 34);
 
+    if (this.team !== 'player' && state.enemyFreeze > 0) return;
+
     if (this.team === 'player') this.updatePlayer(dt);
     else this.updateAI(dt);
   }
@@ -270,12 +283,19 @@ class Tank extends RectEntity {
     else if (input.left) dir = 'left';
     else if (input.right) dir = 'right';
 
+    const onIce = tileAt(this.cx, this.cy)?.type === 'ice';
+
     if (dir) {
       this.alignForTurn(dir);
       this.dir = dir;
+      this.momentumDir = dir;
       const d = DIRS[dir];
       this.move(d.x * this.speed * dt, d.y * this.speed * dt);
+    } else if (onIce && this.momentumDir) {
+      const d = DIRS[this.momentumDir];
+      this.move(d.x * this.speed * 0.72 * dt, d.y * this.speed * 0.72 * dt);
     }
+
     if (input.fire) this.shoot();
   }
 
@@ -494,6 +514,17 @@ class Tank extends RectEntity {
       ctx.stroke();
     }
 
+    if (this.team === 'enemy' && this.carrier) {
+      const pulse = 0.55 + 0.35 * Math.sin(performance.now() / 95) ** 2;
+      ctx.strokeStyle = `rgba(255,230,105,${pulse})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 27, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#ffe669';
+      ctx.fillRect(-3, -24, 6, 6);
+    }
+
     ctx.restore();
     this.drawHealth();
   }
@@ -558,7 +589,7 @@ class Bullet extends RectEntity {
       }
 
       const tile = tileAt(this.cx, this.cy);
-      if (tile && !['floor', 'water', 'brush'].includes(tile.type)) {
+      if (tile && !['floor', 'water', 'brush', 'ice'].includes(tile.type)) {
         if (tile.type === 'brick') {
           tile.hp -= this.strong ? Math.max(2, this.damage) : 1;
           debris(this.cx, this.cy, COLORS.brickLight);
@@ -611,6 +642,44 @@ class Bullet extends RectEntity {
   }
 }
 
+class PowerUp extends RectEntity {
+  constructor(x, y, type) {
+    super(x - 15, y - 15, 30, 30);
+    this.type = type;
+    this.ttl = POWERUP_LIFETIME;
+    this.phase = Math.random() * Math.PI * 2;
+  }
+
+  update(dt) {
+    this.ttl -= dt;
+    if (this.ttl <= 0) this.dead = true;
+  }
+
+  draw() {
+    const spec = POWERUP_TYPES[this.type];
+    const pulse = 1 + Math.sin(performance.now() / 130 + this.phase) * 0.06;
+
+    ctx.save();
+    ctx.translate(this.cx, this.cy);
+    ctx.scale(pulse, pulse);
+
+    ctx.fillStyle = 'rgba(7,12,18,.82)';
+    ctx.strokeStyle = spec.color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(-15, -15, 30, 30, 7);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = spec.color;
+    ctx.font = '900 16px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(spec.glyph, 0, 1);
+    ctx.restore();
+  }
+}
+
 class Base extends RectEntity {
   constructor(x, y, hp = MAX_BASE_HP) {
     super(x, y, 42, 42);
@@ -641,6 +710,15 @@ class Base extends RectEntity {
     ctx.strokeStyle = '#1f4c3a';
     ctx.lineWidth = 4;
     ctx.strokeRect(-12, -12, 24, 24);
+
+    if (state.baseShield > 0) {
+      const pulse = 0.45 + 0.35 * Math.sin(performance.now() / 110) ** 2;
+      ctx.strokeStyle = `rgba(117,213,167,${pulse})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(0, 0, 27, 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
     ctx.restore();
   }
