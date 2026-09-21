@@ -310,7 +310,8 @@ class Tank extends RectEntity {
       this.shoot();
     }
 
-    this.decisionClock -= dt;
+    const onIce = tileAt(this.cx, this.cy)?.type === 'ice';
+    this.decisionClock -= dt * (onIce ? 0.28 : 1);
     if (this.decisionClock <= 0) {
       this.decisionClock = 0.24 + Math.random() * 0.36;
       this.dir = this.chooseDirection(target);
@@ -1441,6 +1442,29 @@ function drawTerrain() {
           ctx.arc(px + ox, py + oy, 2.2, 0, Math.PI * 2);
           ctx.fill();
         });
+      } else if (tile.type === 'ice') {
+        ctx.fillStyle = COLORS.ice;
+        ctx.globalAlpha = 0.82;
+        ctx.fillRect(px + 1, py + 1, TILE - 2, TILE - 2);
+        ctx.globalAlpha = 1;
+
+        ctx.strokeStyle = COLORS.iceLine;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(px + 6, py + 34);
+        ctx.lineTo(px + 18, py + 22);
+        ctx.lineTo(px + 27, py + 26);
+        ctx.lineTo(px + 42, py + 11);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(255,255,255,.42)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(px + 5, py + 12);
+        ctx.lineTo(px + 18, py + 8);
+        ctx.moveTo(px + 30, py + 39);
+        ctx.lineTo(px + 42, py + 34);
+        ctx.stroke();
       } else if (tile.type === 'water') {
         ctx.fillStyle = COLORS.water;
         ctx.fillRect(px, py, TILE, TILE);
