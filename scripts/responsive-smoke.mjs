@@ -74,6 +74,7 @@ for (const testCase of cases) {
   if (testCase.width > testCase.height) {
     if (overlap(metrics.game, metrics.dpad) > 4) fail('landscape D-pad overlaps game board');
     if (overlap(metrics.game, metrics.fire) > 4) fail('landscape fire control overlaps game board');
+    if (overlap(metrics.game, metrics.hud) > 4) fail('landscape HUD overlaps game board');
   }
 
   if (metrics.scrollWidth > metrics.innerWidth + 2) fail('horizontal overflow detected');
