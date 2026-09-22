@@ -2928,6 +2928,7 @@ if (window.location.hostname === '127.0.0.1') {
       frames = 240,
       dt = 1 / 60,
       targetBullets = 64,
+      targetParticles = 600,
       drawFrames = true,
     } = {}) {
       const times = [];
@@ -2963,6 +2964,20 @@ if (window.location.hostname === '127.0.0.1') {
               strong: false,
             })
           );
+        }
+
+        while (state.particles.length < targetParticles) {
+          const i = state.particles.length + frameIndex * 7;
+          const angle = (i % 96) / 96 * Math.PI * 2;
+          state.particles.push({
+            x: 384 + Math.cos(angle) * (20 + (i % 180)),
+            y: 384 + Math.sin(angle) * (20 + (i % 180)),
+            vx: Math.cos(angle) * (18 + (i % 11) * 5),
+            vy: Math.sin(angle) * (18 + (i % 11) * 5),
+            life: 0.42 + (i % 7) * 0.05,
+            size: 2 + (i % 3),
+            color: i % 3 ? '#fff2a6' : '#c18055',
+          });
         }
 
         const started = performance.now();
