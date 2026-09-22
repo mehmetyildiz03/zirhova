@@ -20,6 +20,7 @@ jobs:
           node --check src/levelSchema.js
           node --check src/editor.js
           node --check src/controllerSystem.js
+          node --check src/navigationSystem.js
       - name: Validate web manifest JSON
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest ok')"
       - name: Validate level data
@@ -30,6 +31,8 @@ jobs:
         run: node scripts/validate-bricks.mjs
       - name: Validate controller mappings
         run: node scripts/validate-controls.mjs
+      - name: Validate navigation sub-grid
+        run: node scripts/validate-navigation.mjs
       - name: Verify required PWA files
         run: |
           test -f index.html
@@ -40,6 +43,7 @@ jobs:
           test -f src/levelSchema.js
           test -f src/editor.js
           test -f src/controllerSystem.js
+          test -f src/navigationSystem.js
           test -f editor.html
           test -f editor.css
           test -f icons/icon-192.png
@@ -55,6 +59,7 @@ jobs:
           test -n "$CHROME_PATH"
           node scripts/responsive-smoke.mjs
           node scripts/gameplay-smoke.mjs
+          node scripts/navigation-smoke.mjs
           node scripts/mobile-touch-smoke.mjs
           node scripts/editor-smoke.mjs
           node scripts/coop-smoke.mjs
