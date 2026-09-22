@@ -1988,6 +1988,7 @@ document.querySelectorAll('[data-action="fire"]').forEach(button => {
 
 const directionPad = document.querySelector('#directionPad');
 let directionPointerId = null;
+let touchMoveDir = null;
 
 function directionFromPadPoint(event) {
   if (!directionPad) return null;
@@ -1995,10 +1996,21 @@ function directionFromPadPoint(event) {
   const rect = directionPad.getBoundingClientRect();
   const x = event.clientX - rect.left - rect.width / 2;
   const y = event.clientY - rect.top - rect.height / 2;
+  const absX = Math.abs(x);
+  const absY = Math.abs(y);
   const deadZone = Math.min(rect.width, rect.height) * 0.13;
 
   if (Math.hypot(x, y) < deadZone) return null;
-  return Math.abs(x) > Math.abs(y)
+
+  // Keep the current axis until the perpendicular axis clearly wins.
+  // This prevents left/right ↔ up/down flicker around diagonal thumb positions.
+  if (touchMoveDir === 'left' || touchMoveDir === 'right') {
+    if (absY <= absX * 1.18) return x > 0 ? 'right' : 'left';
+  } else if (touchMoveDir === 'up' || touchMoveDir === 'down') {
+    if (absX <= absY * 1.18) return y > 0 ? 'down' : 'up';
+  }
+
+  return absX > absY
     ? (x > 0 ? 'right' : 'left')
     : (y > 0 ? 'down' : 'up');
 }
@@ -2013,12 +2025,14 @@ function paintDirectionPad(dir) {
 function updateDirectionPad(event) {
   if (directionPointerId !== event.pointerId) return;
   const dir = directionFromPadPoint(event);
+  touchMoveDir = dir;
   setMoveDirection(dir);
   paintDirectionPad(dir);
 }
 
 function resetMovePadVisual() {
   paintDirectionPad(null);
+  touchMoveDir = null;
   directionPointerId = null;
 }
 
@@ -2030,6 +2044,7 @@ if (directionPad) {
     if (directionPointerId !== null) return;
 
     directionPointerId = event.pointerId;
+    touchMoveDir = null;
     directionPad.setPointerCapture?.(event.pointerId);
     updateDirectionPad(event);
   });
@@ -2140,7 +2155,14 @@ if (installBtn && !isStandalone) {
 }
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('./sw.js', {
+        updateViaCache: 'none',
+      });
+      registration.update().catch(() => {});
+    } catch {}
+  });
 }
 
 const customPreview = readCustomLevel();
