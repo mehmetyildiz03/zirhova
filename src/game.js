@@ -162,6 +162,8 @@ const p1KeyMap = new Map([
   ['Space', 'fire'],
 ]);
 
+let nextEnemyTrafficId = 1;
+
 const p2KeyMap = new Map([
   ['ArrowUp', 'up'],
   ['ArrowDown', 'down'],
@@ -285,6 +287,15 @@ class Tank extends RectEntity {
     this.fireCooldown = 0;
     this.decisionClock = 0;
     this.stuckClock = 0;
+    this.rerouteClock = 0;
+    this.directionHoldClock = 0;
+    this.trafficWaitClock = 0;
+    this.trafficYieldClock = 0;
+    this.trafficYieldDir = null;
+    this.trafficBlockedClock = 0;
+    this.trafficYieldCount = 0;
+    this.turnCount = 0;
+    this.aiId = team === 'player' ? 0 : nextEnemyTrafficId++;
     this.spawnShield = team === 'player' ? 1.25 : 0.52;
     this.carrier = false;
     this.momentumDir = this.dir;
@@ -331,18 +342,45 @@ class Tank extends RectEntity {
       ? (nearestLivePlayer(this) || state.base)
       : state.base;
 
+    this.rerouteClock = Math.max(0, this.rerouteClock - dt);
+    this.directionHoldClock = Math.max(0, this.directionHoldClock - dt);
+    this.trafficWaitClock = Math.max(0, this.trafficWaitClock - dt);
+
+    if (this.trafficYieldClock > 0 && this.trafficYieldDir) {
+      this.trafficYieldClock = Math.max(0, this.trafficYieldClock - dt);
+      const yieldDir = this.trafficYieldDir;
+
+      if (this.applyAIDirection(yieldDir, 0.08)) {
+        const d = DIRS[yieldDir];
+        const moved = this.move(d.x * this.speed * dt, d.y * this.speed * dt);
+        if (moved) {
+          this.stuckClock = 0;
+          this.trafficBlockedClock = 0;
+        }
+      }
+
+      if (this.trafficYieldClock <= 0) this.trafficYieldDir = null;
+      return;
+    }
+
+    if (this.trafficWaitClock > 0) return;
+
     const shotDir = lineOfSightDirection(this, target);
-    if (shotDir && this.fireCooldown <= 0 && this.alignForTurn(shotDir)) {
-      this.dir = shotDir;
+    if (
+      shotDir &&
+      this.fireCooldown <= 0 &&
+      this.applyAIDirection(shotDir, 0.12)
+    ) {
       this.shoot();
     }
 
     const onIce = tileAt(this.cx, this.cy)?.type === 'ice';
     this.decisionClock -= dt * (onIce ? 0.28 : 1);
-    if (this.decisionClock <= 0) {
+
+    if (this.decisionClock <= 0 && this.directionHoldClock <= 0) {
       this.decisionClock = 0.24 + Math.random() * 0.36;
       const nextDir = this.chooseDirection(target);
-      if (this.alignForTurn(nextDir)) this.dir = nextDir;
+      this.applyAIDirection(nextDir, 0.16);
     }
 
     const ahead = blockingTerrainAhead(this, this.dir, 25);
@@ -354,24 +392,140 @@ class Tank extends RectEntity {
     const d = DIRS[this.dir];
     const moved = this.move(d.x * this.speed * dt, d.y * this.speed * dt);
 
-    if (!moved) {
-      this.stuckClock += dt;
-      if (this.stuckClock > 0.09) {
-        const nextDir = this.chooseDirection(target, this.dir);
-        if (this.alignForTurn(nextDir)) this.dir = nextDir;
-        this.stuckClock = 0;
-        this.decisionClock = 0.12;
-      }
-    } else {
+    if (moved) {
       this.stuckClock = 0;
+      this.rerouteClock = 0;
+      this.trafficBlockedClock = 0;
+    } else {
+      this.stuckClock += dt;
+      this.trafficBlockedClock += dt;
+
+      const tankBlocker = blockingTankAhead(this, this.dir, 10);
+      if (tankBlocker) {
+        if (tankBlocker.team === 'player') {
+          if (this.fireCooldown <= 0) this.shoot();
+          this.trafficWaitClock = 0.08;
+          return;
+        }
+
+        if (tankBlocker.team === 'enemy') {
+          if (this.handleEnemyTraffic(tankBlocker, target, dt)) return;
+        }
+      }
+
+      if (this.rerouteClock <= 0 && this.stuckClock > 0.14) {
+        const allowReverse = this.stuckClock > 0.55;
+        const nextDir = this.chooseDirection(
+          target,
+          this.dir,
+          { allowReverse }
+        );
+
+        if (nextDir && nextDir !== this.dir) {
+          this.applyAIDirection(nextDir, 0.2);
+        }
+
+        this.rerouteClock = allowReverse ? 0.12 : 0.17;
+      }
     }
 
-    if (!shotDir && this.fireCooldown <= 0 && Math.random() < 0.0045) this.shoot();
+    if (!shotDir && this.fireCooldown <= 0 && Math.random() < 0.0045) {
+      this.shoot();
+    }
   }
 
-  chooseDirection(target, avoidDir = null) {
+  applyAIDirection(nextDir, hold = 0.16) {
+    if (!nextDir) return false;
+    if (!this.alignForTurn(nextDir)) return false;
+
+    if (this.dir !== nextDir) {
+      this.dir = nextDir;
+      this.turnCount++;
+    }
+
+    this.directionHoldClock = Math.max(this.directionHoldClock, hold);
+    return true;
+  }
+
+  requestTrafficYield(dir, depth = 0, visited = new Set()) {
+    if (!dir || depth > 4 || visited.has(this.aiId)) return false;
+    visited.add(this.aiId);
+
+    const blocker = blockingTankAhead(this, dir, 10);
+    if (blocker?.team === 'enemy') {
+      if (!blocker.requestTrafficYield(dir, depth + 1, visited)) return false;
+    } else if (blocker) {
+      return false;
+    } else if (!this.canMove(dir, 9)) {
+      return false;
+    }
+
+    this.trafficYieldDir = dir;
+    this.trafficYieldClock = Math.max(this.trafficYieldClock, 0.66);
+    this.trafficYieldCount++;
+    this.trafficWaitClock = 0;
+    return true;
+  }
+
+  handleEnemyTraffic(blocker, target, dt) {
+    const sameDirection = blocker.dir === this.dir;
+    const oppositeDirection = blocker.dir === oppositeDir(this.dir);
+
+    if (sameDirection) {
+      // Stable convoy: follow instead of jittering around the tank ahead.
+      if (
+        this.trafficBlockedClock > 0.75 &&
+        this.rerouteClock <= 0
+      ) {
+        const alternate = this.chooseDirection(
+          target,
+          this.dir,
+          { allowReverse: false }
+        );
+
+        if (alternate && alternate !== this.dir && this.canMove(alternate, 9)) {
+          this.applyAIDirection(alternate, 0.24);
+          this.rerouteClock = 0.3;
+          this.trafficBlockedClock = 0;
+          return false;
+        }
+      }
+
+      this.trafficWaitClock = 0.1;
+      return true;
+    }
+
+    // Deterministic right-of-way: earlier spawned enemy keeps the lane.
+    const shouldYield = this.aiId > blocker.aiId;
+
+    if (shouldYield) {
+      const reverse = oppositeDir(this.dir);
+      const perpendicular = DIRS[this.dir].axis === 'v'
+        ? ['left', 'right']
+        : ['up', 'down'];
+
+      for (const escapeDir of [reverse, ...perpendicular]) {
+        if (this.requestTrafficYield(escapeDir)) return true;
+      }
+
+      this.trafficWaitClock = 0.1;
+      return true;
+    }
+
+    // Non-yielding tank holds its heading briefly while the other clears.
+    this.trafficWaitClock = oppositeDirection ? 0.08 : 0.1;
+    return true;
+  }
+
+  chooseDirection(target, avoidDir = null, { allowReverse = true } = {}) {
+    const reverse = oppositeDir(this.dir);
     const pathDir = findPathDirection(this, target, this.spec.brickCost);
-    if (pathDir && pathDir !== avoidDir) {
+
+    if (
+      pathDir &&
+      pathDir !== avoidDir &&
+      (allowReverse || pathDir !== reverse)
+    ) {
       const ahead = blockingTerrainAhead(this, pathDir, 24);
       if (ahead?.type === 'brick' || this.canMove(pathDir, 9)) return pathDir;
     }
@@ -385,13 +539,19 @@ class Tank extends RectEntity {
       : [vertical, horizontal];
 
     const candidates = [...preferred, ...shuffle(DIR_NAMES)]
-      .filter((name, index, arr) => arr.indexOf(name) === index && name !== avoidDir);
+      .filter((name, index, arr) =>
+        arr.indexOf(name) === index &&
+        name !== avoidDir &&
+        (allowReverse || name !== reverse)
+      );
 
     for (const name of candidates) {
       const ahead = blockingTerrainAhead(this, name, 24);
       if (ahead?.type === 'brick' || this.canMove(name, 9)) return name;
     }
-    return preferred[0];
+
+    if (allowReverse && this.canMove(reverse, 9)) return reverse;
+    return this.dir;
   }
 
   findTurnAlignment(nextDir) {
@@ -996,6 +1156,7 @@ function gridEntityPosition([tx, ty], size) {
 
 function resetGame(coopMode = state.coop) {
   state.runToken++;
+  nextEnemyTrafficId = 1;
   clearAllInput();
   const customLevel = readCustomLevel();
   const coop = Boolean(coopMode);
