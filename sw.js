@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.9-balance';
+const CACHE = 'zirhova-v0.10-boss';
 const ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const ASSETS = [
   './src/controllerSystem.js',
   './src/navigationSystem.js',
   './src/balanceSystem.js',
+  './src/bossSystem.js',
   './src/editor.js',
   './editor.css',
   './editor.html',
