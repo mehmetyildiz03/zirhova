@@ -22,6 +22,7 @@ jobs:
           node --check src/controllerSystem.js
           node --check src/navigationSystem.js
           node --check src/balanceSystem.js
+          node --check src/bossSystem.js
       - name: Validate web manifest JSON
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest ok')"
       - name: Validate level data
@@ -38,6 +39,8 @@ jobs:
         run: node scripts/validate-navigation.mjs
       - name: Validate balance curve
         run: node scripts/validate-balance.mjs
+      - name: Validate boss mechanics
+        run: node scripts/validate-boss.mjs
       - name: Verify required PWA files
         run: |
           test -f index.html
@@ -50,6 +53,7 @@ jobs:
           test -f src/controllerSystem.js
           test -f src/navigationSystem.js
           test -f src/balanceSystem.js
+          test -f src/bossSystem.js
           test -f editor.html
           test -f editor.css
           test -f icons/icon-192.png
@@ -68,6 +72,7 @@ jobs:
           node scripts/navigation-smoke.mjs
           node scripts/movement-audit-smoke.mjs
           node scripts/ai-traffic-smoke.mjs
+          node scripts/boss-smoke.mjs
           node scripts/long-run-smoke.mjs
           node scripts/performance-stress-smoke.mjs
           node scripts/mobile-touch-smoke.mjs
