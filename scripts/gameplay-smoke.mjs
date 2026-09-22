@@ -28,6 +28,11 @@ await page.waitForTimeout(700);
 const introVisible = await page.locator('#introOverlay').evaluate(el => el.classList.contains('show'));
 if (introVisible) throw new Error('Intro overlay stayed open after starting game');
 
+const weaponTierText = (await page.locator('#weaponTier').textContent())?.trim();
+if (weaponTierText !== 'I') {
+  throw new Error(`Weapon tier should start at I, got: ${weaponTierText}`);
+}
+
 const remainingText = (await page.locator('#remaining').textContent())?.trim();
 const remaining = Number(remainingText);
 if (!Number.isFinite(remaining) || remaining <= 0) {
@@ -80,6 +85,7 @@ if (!Number.isFinite(finalRemaining) || finalRemaining < 0) {
 console.log('PASS gameplay smoke', {
   initialRemaining: remaining,
   finalRemaining,
+  weaponTier: weaponTierText,
   dpad: 'ok',
   fire: 'ok',
   runtimeErrors: 0,
