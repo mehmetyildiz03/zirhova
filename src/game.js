@@ -2576,6 +2576,21 @@ if (window.location.hostname === '127.0.0.1') {
     enemyRects: state.enemies
       .filter(enemy => !enemy.dead)
       .map(enemy => ({ x: enemy.x, y: enemy.y, w: enemy.w, h: enemy.h })),
+    enemyStates: state.enemies
+      .filter(enemy => !enemy.dead)
+      .map(enemy => ({
+        aiId: enemy.aiId,
+        type: enemy.type,
+        x: enemy.x,
+        y: enemy.y,
+        dir: enemy.dir,
+        stuckClock: enemy.stuckClock,
+        trafficWaitClock: enemy.trafficWaitClock,
+        trafficYieldClock: enemy.trafficYieldClock,
+        trafficYieldDir: enemy.trafficYieldDir,
+        trafficYieldCount: enemy.trafficYieldCount,
+        turnCount: enemy.turnCount,
+      })),
     p1: state.player ? {
       x: state.player.x,
       y: state.player.y,
@@ -2609,6 +2624,8 @@ if (window.location.hostname === '127.0.0.1') {
       state.waveSpawnQueue = [];
       state.pendingSpawns = 0;
       state.pendingRespawns = [];
+      state.enemyFreeze = 0;
+      nextEnemyTrafficId = 1;
       state.grid = Array.from(
         { length: ROWS },
         () => Array.from({ length: COLS }, () => makeTile('floor'))
@@ -2685,11 +2702,50 @@ if (window.location.hostname === '127.0.0.1') {
       return blockingTerrainAhead(state.player, dir, distance)?.type || null;
     },
 
-    addEnemy({ x, y, type = 'raider' }) {
+    addEnemy({
+      x,
+      y,
+      type = 'raider',
+      dir = 'down',
+      decisionClock = 999,
+      fireCooldown = 999,
+    }) {
       const enemy = new Tank(x, y, 'enemy', type);
       enemy.spawnShield = 0;
+      enemy.dir = dir;
+      enemy.momentumDir = dir;
+      enemy.decisionClock = decisionClock;
+      enemy.fireCooldown = fireCooldown;
       state.enemies.push(enemy);
       return testSnapshot();
+    },
+
+    setEnemy(index, patch = {}) {
+      const enemy = state.enemies[index];
+      if (!enemy) return testSnapshot();
+      Object.assign(enemy, patch);
+      return testSnapshot();
+    },
+
+    stepEnemies(dt = 0.05) {
+      for (const enemy of state.enemies) {
+        if (!enemy.dead) enemy.updateAI(dt);
+      }
+      return testSnapshot();
+    },
+
+    pathDirForEnemy(index, target) {
+      const enemy = state.enemies[index];
+      if (!enemy) return null;
+      const targetEntity = {
+        x: target.x,
+        y: target.y,
+        w: target.w || 34,
+        h: target.h || 34,
+        get cx() { return this.x + this.w / 2; },
+        get cy() { return this.y + this.h / 2; },
+      };
+      return findPathDirection(enemy, targetEntity, enemy.spec.brickCost);
     },
 
     setSpawnQueue(entries) {
