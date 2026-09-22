@@ -1352,25 +1352,27 @@ function respawnPlayer(slot) {
     ? (state.player2Spawn || findSecondarySpawnCell(state.grid, currentLevel().playerSpawn, currentLevel().baseSpawn))
     : currentLevel().playerSpawn;
 
-  const candidates = [
-    spawnCell,
-    [spawnCell[0] + 1, spawnCell[1]],
-    [spawnCell[0] - 1, spawnCell[1]],
-    [spawnCell[0], spawnCell[1] - 1],
-    [spawnCell[0], spawnCell[1] + 1],
-  ];
+  const offsets = [];
+  for (let radius = 0; radius <= 2; radius++) {
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (Math.abs(dx) + Math.abs(dy) !== radius) continue;
+        offsets.push([dx, dy]);
+      }
+    }
+  }
 
-  for (const cell of candidates) {
-    const [x, y] = cell;
+  for (const [dx, dy] of offsets) {
+    const x = spawnCell[0] + dx;
+    const y = spawnCell[1] + dy;
     if (x < 0 || y < 0 || x >= COLS || y >= ROWS) continue;
 
-    const pos = gridEntityPosition(cell, TANK_SIZE);
+    const pos = gridEntityPosition([x, y], TANK_SIZE);
     const candidate = new Tank(pos.x, pos.y, 'player', 'raider', slot);
     if (canOccupy(candidate, candidate.x, candidate.y)) return candidate;
   }
 
-  const pos = gridEntityPosition(spawnCell, TANK_SIZE);
-  return new Tank(pos.x, pos.y, 'player', 'raider', slot);
+  return null;
 }
 
 function handlePlayerDeath(slot) {
@@ -1386,7 +1388,13 @@ function handlePlayerDeath(slot) {
   state[key] = null;
 
   if (state.lives > 0) {
-    state[key] = respawnPlayer(slot);
+    const respawned = respawnPlayer(slot);
+    if (respawned) {
+      state[key] = respawned;
+    } else if (!state.pendingRespawns.includes(slot)) {
+      state.pendingRespawns.push(slot);
+      state.respawnClock = 0.12;
+    }
   }
 
   syncUI();
@@ -1408,7 +1416,7 @@ function handleDeaths() {
   handlePlayerDeath(1);
   if (state.coop) handlePlayerDeath(2);
 
-  if (!activePlayers().length) {
+  if (!activePlayers().length && state.lives <= 0 && !state.pendingRespawns.length) {
     endGame('Son tank da kaybedildi');
   }
 }
@@ -1502,6 +1510,26 @@ function canOccupy(entity, x, y, { ignoreTanks = false } = {}) {
       if (!other || other === entity || other.dead) continue;
       if (rectOverlap(x, y, entity.w, entity.h, other, 2)) return false;
     }
+  }
+
+  return true;
+}
+
+function canShiftEntity(entity, targetX, targetY, { ignoreTanks = false } = {}) {
+  const dx = targetX - entity.x;
+  const dy = targetY - entity.y;
+  const distance = Math.max(Math.abs(dx), Math.abs(dy));
+
+  if (distance <= 0.01) {
+    return canOccupy(entity, targetX, targetY, { ignoreTanks });
+  }
+
+  const steps = Math.max(1, Math.ceil(distance / 4));
+  for (let step = 1; step <= steps; step++) {
+    const t = step / steps;
+    const x = entity.x + dx * t;
+    const y = entity.y + dy * t;
+    if (!canOccupy(entity, x, y, { ignoreTanks })) return false;
   }
 
   return true;
@@ -1678,6 +1706,27 @@ function showNotice(text, seconds = 1) {
   state.noticeTimer = seconds;
 }
 
+function updatePendingRespawns(dt) {
+  if (!state.pendingRespawns.length) return;
+
+  state.respawnClock -= dt;
+  if (state.respawnClock > 0) return;
+
+  const stillPending = [];
+  for (const slot of state.pendingRespawns) {
+    const key = slot === 2 ? 'player2' : 'player';
+    if (state[key] && !state[key].dead) continue;
+
+    const respawned = respawnPlayer(slot);
+    if (respawned) state[key] = respawned;
+    else stillPending.push(slot);
+  }
+
+  state.pendingRespawns = stillPending;
+  state.respawnClock = stillPending.length ? 0.16 : 0;
+  syncUI();
+}
+
 function update(dt) {
   pollGamepads();
   if (!state.running || state.paused || state.awaitingUpgrade) return;
@@ -1688,6 +1737,7 @@ function update(dt) {
   state.baseShield = Math.max(0, state.baseShield - dt);
 
   updateSpawnQueue(dt);
+  updatePendingRespawns(dt);
   state.base?.update(dt);
   state.player?.update(dt);
   state.player2?.update(dt);
