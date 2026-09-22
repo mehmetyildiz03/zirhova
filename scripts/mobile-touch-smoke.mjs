@@ -82,9 +82,9 @@ for (const testCase of cases) {
     throw new Error(`${testCase.name}: tank did not face up under touch input`);
   }
 
-  const bulletsAfterHold = snap.bullets;
-  if (bulletsAfterHold < 1) {
-    throw new Error(`${testCase.name}: holding fire did not create a projectile`);
+  const fireCooldownAfterHold = snap.p1?.fireCooldown ?? 0;
+  if (!(fireCooldownAfterHold > 0)) {
+    throw new Error(`${testCase.name}: holding fire did not trigger the player cannon`);
   }
 
   const rightPoint = point(
@@ -139,7 +139,7 @@ for (const testCase of cases) {
     moveAndFire: 'ok',
     slideTurnWhileFiring: 'ok',
     releaseCleanup: 'ok',
-    bulletsAfterHold,
+    fireCooldownAfterHold,
   });
 
   await session.detach();
