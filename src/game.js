@@ -2288,33 +2288,133 @@ state.grid = buildMap(currentLevel());
 syncUI();
 
 if (window.location.hostname === '127.0.0.1') {
+  const testSnapshot = () => ({
+    coop: state.coop,
+    lives: state.lives,
+    activePlayers: activePlayers().length,
+    pendingRespawns: [...state.pendingRespawns],
+    pendingSpawns: state.pendingSpawns,
+    enemyRects: state.enemies
+      .filter(enemy => !enemy.dead)
+      .map(enemy => ({ x: enemy.x, y: enemy.y, w: enemy.w, h: enemy.h })),
+    p1: state.player ? {
+      x: state.player.x,
+      y: state.player.y,
+      dir: state.player.dir,
+      fireCooldown: state.player.fireCooldown,
+      navX: isNavAlignedStart(state.player.x, state.player.w, WORLD),
+      navY: isNavAlignedStart(state.player.y, state.player.h, WORLD),
+      dead: state.player.dead,
+    } : null,
+    p2: state.player2 ? {
+      x: state.player2.x,
+      y: state.player2.y,
+      dir: state.player2.dir,
+      navX: isNavAlignedStart(state.player2.x, state.player2.w, WORLD),
+      navY: isNavAlignedStart(state.player2.y, state.player2.h, WORLD),
+      dead: state.player2.dead,
+    } : null,
+    navStep: NAV_STEP,
+    touchInput: { ...touchInput },
+    bullets: state.bullets.length,
+  });
+
   window.__zirhovaTest = {
-    snapshot() {
-      return {
-        coop: state.coop,
-        lives: state.lives,
-        activePlayers: activePlayers().length,
-        p1: state.player ? {
-          x: state.player.x,
-          y: state.player.y,
-          dir: state.player.dir,
-          fireCooldown: state.player.fireCooldown,
-          navX: isNavAlignedStart(state.player.x, state.player.w, WORLD),
-          navY: isNavAlignedStart(state.player.y, state.player.h, WORLD),
-          dead: state.player.dead,
-        } : null,
-        p2: state.player2 ? {
-          x: state.player2.x,
-          y: state.player2.y,
-          dir: state.player2.dir,
-          navX: isNavAlignedStart(state.player2.x, state.player2.w, WORLD),
-          navY: isNavAlignedStart(state.player2.y, state.player2.h, WORLD),
-          dead: state.player2.dead,
-        } : null,
-        navStep: NAV_STEP,
-        touchInput: { ...touchInput },
-        bullets: state.bullets.length,
-      };
+    snapshot: testSnapshot,
+
+    sandbox() {
+      state.paused = true;
+      state.enemies = [];
+      state.bullets = [];
+      state.powerups = [];
+      state.waveSpawnQueue = [];
+      state.pendingSpawns = 0;
+      state.pendingRespawns = [];
+      state.grid = Array.from(
+        { length: ROWS },
+        () => Array.from({ length: COLS }, () => makeTile('floor'))
+      );
+      state.base = null;
+      state.player2 = null;
+
+      const pos = gridEntityPosition([5, 8], TANK_SIZE);
+      state.player = new Tank(pos.x, pos.y, 'player', 'raider', 1);
+      return testSnapshot();
+    },
+
+    setP1({ x, y, dir = 'up' }) {
+      if (!state.player) state.player = new Tank(x, y, 'player', 'raider', 1);
+      state.player.x = x;
+      state.player.y = y;
+      state.player.dir = dir;
+      state.player.momentumDir = dir;
+      return testSnapshot();
+    },
+
+    setP2({ x, y, dir = 'up' }) {
+      state.coop = true;
+      state.player2 = new Tank(x, y, 'player', 'raider', 2);
+      state.player2.dir = dir;
+      state.player2.momentumDir = dir;
+      return testSnapshot();
+    },
+
+    clearP2() {
+      state.player2 = null;
+      return testSnapshot();
+    },
+
+    setBase({ x, y }) {
+      state.base = new Base(x, y, MAX_BASE_HP);
+      return testSnapshot();
+    },
+
+    setTile(tx, ty, type, mask = BRICK_FULL_MASK) {
+      const tile = makeTile(type);
+      if (type === 'brick') tile.mask = mask;
+      state.grid[ty][tx] = tile;
+      return { ...tile };
+    },
+
+    driveP1(dir, distance = 8) {
+      if (!state.player) return { moved: false, snapshot: testSnapshot() };
+      const aligned = state.player.alignForTurn(dir);
+      if (!aligned) return { moved: false, aligned: false, snapshot: testSnapshot() };
+
+      state.player.dir = dir;
+      state.player.momentumDir = dir;
+      const d = DIRS[dir];
+      const moved = state.player.move(d.x * distance, d.y * distance);
+      return { moved, aligned: true, snapshot: testSnapshot() };
+    },
+
+    canP1Move(dir, distance = 8) {
+      return Boolean(state.player?.canMove(dir, distance));
+    },
+
+    addEnemy({ x, y, type = 'raider' }) {
+      const enemy = new Tank(x, y, 'enemy', type);
+      enemy.spawnShield = 0;
+      state.enemies.push(enemy);
+      return testSnapshot();
+    },
+
+    clearEnemies() {
+      state.enemies = [];
+      return testSnapshot();
+    },
+
+    forceP1Death() {
+      if (!state.player) return testSnapshot();
+      state.player.spawnShield = 0;
+      state.player.dead = true;
+      handleDeaths();
+      return testSnapshot();
+    },
+
+    retryRespawns(seconds = 0.2) {
+      updatePendingRespawns(seconds);
+      return testSnapshot();
     },
   };
 }
