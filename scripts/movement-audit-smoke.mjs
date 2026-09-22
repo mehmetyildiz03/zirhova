@@ -196,7 +196,7 @@ assert(
   { carvedAhead }
 );
 
-await testCall('setP1', { x: 5 * 48 - 5, y: 5 * 48 - 31, dir: 'down' });
+await testCall('setP1', { x: 5 * 48 - 11, y: 5 * 48 - 31, dir: 'down' });
 const solidAhead = await testCall('blockingAheadP1', 'down', 40);
 assert(
   solidAhead === 'brick',
