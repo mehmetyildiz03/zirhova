@@ -2857,5 +2857,152 @@ if (window.location.hostname === '127.0.0.1') {
       updateParticles(seconds);
       return testSnapshot();
     },
+
+    seedStressLoad({
+      enemies = 4,
+      particles = 600,
+      powerups = 12,
+    } = {}) {
+      state.running = true;
+      state.gameOver = false;
+      state.awaitingUpgrade = false;
+      state.paused = true;
+      state.enemyFreeze = 999;
+      state.waveSpawnQueue = [];
+      // Keep lifecycle advancement disabled while benchmarking core frame work.
+      state.pendingSpawns = 1;
+      state.bullets = [];
+      state.enemies = [];
+      state.powerups = [];
+      state.particles = [];
+
+      if (!state.player) {
+        const pp = gridEntityPosition([5, 14], TANK_SIZE);
+        state.player = new Tank(pp.x, pp.y, 'player', 'raider', 1);
+      }
+      state.player.spawnShield = 999;
+
+      const enemySlots = [
+        [2, 2], [13, 2], [2, 10], [13, 10],
+        [7, 4], [7, 10],
+      ];
+      const enemyTypes = ['raider', 'scout', 'hunter', 'heavy'];
+
+      for (let i = 0; i < Math.min(enemies, enemySlots.length); i++) {
+        const pos = gridEntityPosition(enemySlots[i], TANK_SIZE);
+        const enemy = new Tank(pos.x, pos.y, 'enemy', enemyTypes[i % enemyTypes.length]);
+        enemy.spawnShield = 999;
+        enemy.fireCooldown = 999;
+        enemy.decisionClock = 999;
+        state.enemies.push(enemy);
+      }
+
+      const powerupTypes = Object.keys(POWERUP_TYPES);
+      for (let i = 0; i < powerups; i++) {
+        const x = 70 + (i % 6) * 110;
+        const y = 90 + Math.floor(i / 6) * 90;
+        const powerup = new PowerUp(x, y, powerupTypes[i % powerupTypes.length]);
+        powerup.ttl = POWERUP_LIFETIME;
+        state.powerups.push(powerup);
+      }
+
+      for (let i = 0; i < particles; i++) {
+        const angle = (i % 64) / 64 * Math.PI * 2;
+        const speed = 20 + (i % 9) * 7;
+        state.particles.push({
+          x: 384 + Math.cos(angle) * (30 + (i % 120)),
+          y: 384 + Math.sin(angle) * (30 + (i % 120)),
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 0.45 + (i % 8) * 0.06,
+          size: 2 + (i % 3),
+          color: i % 2 ? '#fff2a6' : '#c18055',
+        });
+      }
+
+      syncUI();
+      return testSnapshot();
+    },
+
+    benchmarkStress({
+      frames = 240,
+      dt = 1 / 60,
+      targetBullets = 64,
+      drawFrames = true,
+    } = {}) {
+      const times = [];
+      const previousPaused = state.paused;
+      state.paused = false;
+      state.running = true;
+      state.gameOver = false;
+      state.awaitingUpgrade = false;
+      state.pendingSpawns = Math.max(1, state.pendingSpawns);
+
+      const directions = [
+        { dx: 1, dy: 0 },
+        { dx: -1, dy: 0 },
+        { dx: 0, dy: 1 },
+        { dx: 0, dy: -1 },
+      ];
+
+      let peakBullets = state.bullets.length;
+      let peakParticles = state.particles.length;
+      let peakPowerups = state.powerups.length;
+
+      for (let frameIndex = 0; frameIndex < frames; frameIndex++) {
+        while (state.bullets.length < targetBullets) {
+          const i = state.bullets.length + frameIndex;
+          const dir = directions[i % directions.length];
+          const lane = i % 12;
+          const x = 250 + (lane % 6) * 45;
+          const y = 250 + Math.floor(lane / 6) * 180;
+          state.bullets.push(
+            new Bullet(x, y, dir.dx, dir.dy, 'player', {
+              speed: 405,
+              damage: 1,
+              strong: false,
+            })
+          );
+        }
+
+        const started = performance.now();
+        update(dt);
+        if (drawFrames) draw();
+        times.push(performance.now() - started);
+
+        peakBullets = Math.max(peakBullets, state.bullets.length);
+        peakParticles = Math.max(peakParticles, state.particles.length);
+        peakPowerups = Math.max(peakPowerups, state.powerups.length);
+      }
+
+      state.paused = previousPaused;
+
+      const sorted = [...times].sort((a, b) => a - b);
+      const averageMs = times.reduce((sum, value) => sum + value, 0) / times.length;
+      const p95Ms = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))];
+      const maxMs = sorted[sorted.length - 1];
+
+      return {
+        frames,
+        averageMs,
+        p95Ms,
+        maxMs,
+        peakBullets,
+        peakParticles,
+        peakPowerups,
+        snapshot: testSnapshot(),
+      };
+    },
+
+    clearStressLoad() {
+      state.bullets = [];
+      state.powerups = [];
+      state.particles = [];
+      state.enemies = [];
+      state.pendingSpawns = 0;
+      state.enemyFreeze = 0;
+      syncUI();
+      return testSnapshot();
+    },
   };
 }
