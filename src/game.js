@@ -1739,6 +1739,20 @@ function canOccupy(entity, x, y, { ignoreTanks = false } = {}) {
   return true;
 }
 
+function blockingTankAhead(entity, dir, distance = 10) {
+  const d = DIRS[dir];
+  const x = entity.x + d.x * distance;
+  const y = entity.y + d.y * distance;
+  const tanks = [state.player, state.player2, ...state.enemies];
+
+  for (const other of tanks) {
+    if (!other || other === entity || other.dead) continue;
+    if (rectOverlap(x, y, entity.w, entity.h, other, 2)) return other;
+  }
+
+  return null;
+}
+
 function canShiftEntity(entity, targetX, targetY, { ignoreTanks = false } = {}) {
   const dx = targetX - entity.x;
   const dy = targetY - entity.y;
@@ -1882,6 +1896,8 @@ function findPathDirection(source, target, brickCost = 4) {
       else if (tile.type === 'ice') cost = 1.04;
 
       const key = cellKey(nx, ny);
+      cost += enemyTrafficCost(source, nx, ny);
+
       const tentative = current.g + cost;
       if (tentative >= (gScore.get(key) ?? Infinity)) continue;
 
@@ -1905,6 +1921,30 @@ function cellKey(x, y) {
 
 function manhattan(a, b) {
   return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
+
+function oppositeDir(dir) {
+  if (dir === 'up') return 'down';
+  if (dir === 'down') return 'up';
+  if (dir === 'left') return 'right';
+  return 'left';
+}
+
+function enemyTrafficCost(source, tx, ty) {
+  let cost = 0;
+
+  for (const enemy of state.enemies) {
+    if (!enemy || enemy === source || enemy.dead) continue;
+
+    const ex = clamp(Math.floor(enemy.cx / TILE), 0, COLS - 1);
+    const ey = clamp(Math.floor(enemy.cy / TILE), 0, ROWS - 1);
+    const distance = Math.abs(ex - tx) + Math.abs(ey - ty);
+
+    if (distance === 0) cost += 6;
+    else if (distance === 1) cost += 1.4;
+  }
+
+  return cost;
 }
 
 function tileAt(x, y) {
