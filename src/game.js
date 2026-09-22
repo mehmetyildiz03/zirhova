@@ -5,6 +5,7 @@ import { validateCustomLevel } from './levelSchema.js';
 import { freshActions, mergeActions, readGamepadActions, pickDirection } from './controllerSystem.js';
 import { NAV_STEP, isNavAlignedStart, navStartCandidates } from './navigationSystem.js';
 import { waveEnemyCount, buildEnemyRoster, carrierIndexForWave, shouldDropArsenal } from './balanceSystem.js';
+import { BOSS_TYPE, isBossWave, bossStats, bossPhase, bossDamageResult } from './bossSystem.js';
 
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
@@ -137,6 +138,23 @@ const ENEMY_TYPES = {
     score: 340,
     mark: 'box',
     strongShot: true,
+  },
+  bastion: {
+    name: 'BURÇKIRAN',
+    speed: 66,
+    hp: 8,
+    color: '#d6b85f',
+    dark: '#6d5721',
+    target: 'base',
+    brickCost: 1.05,
+    fireBase: 0.74,
+    phase2Speed: 84,
+    phase2FireBase: 0.49,
+    score: 1100,
+    mark: 'boss',
+    strongShot: true,
+    boss: true,
+    frontalArmor: true,
   },
 };
 
@@ -281,6 +299,9 @@ class Tank extends RectEntity {
     this.playerSlot = team === 'player' ? playerSlot : 0;
     this.type = type;
     this.spec = team === 'player' ? null : ENEMY_TYPES[type];
+    if (team === 'enemy' && type === BOSS_TYPE) {
+      this.spec = { ...this.spec, ...bossStats(state.stage) };
+    }
     this.dir = team === 'player' ? 'up' : 'down';
     this.speed = team === 'player' ? 162 * state.modifiers.speed : this.spec.speed;
     this.maxHp = team === 'player' ? 1 + state.modifiers.armor : this.spec.hp;
@@ -302,6 +323,8 @@ class Tank extends RectEntity {
     this.momentumDir = this.dir;
     this.muzzleFlash = 0;
     this.hitFlash = 0;
+    this.armorFlash = 0;
+    this.bossPhase = 1;
     this.recoil = 0;
   }
 
@@ -310,7 +333,19 @@ class Tank extends RectEntity {
     this.spawnShield = Math.max(0, this.spawnShield - dt);
     this.muzzleFlash = Math.max(0, this.muzzleFlash - dt);
     this.hitFlash = Math.max(0, this.hitFlash - dt);
+    this.armorFlash = Math.max(0, this.armorFlash - dt);
     this.recoil = Math.max(0, this.recoil - dt * 34);
+
+    if (this.team === 'enemy' && this.spec?.boss) {
+      const nextPhase = bossPhase(this.hp, this.maxHp);
+      if (nextPhase !== this.bossPhase) {
+        this.bossPhase = nextPhase;
+        this.speed = nextPhase === 2 ? this.spec.phase2Speed : this.spec.speed;
+        showNotice('BURÇKIRAN · SALDIRI FAZI', 1.0);
+        addShake(4);
+        tone(105, 0.12, 'sawtooth', 0.035);
+      }
+    }
 
     if (this.team !== 'player' && state.enemyFreeze > 0) return;
 
@@ -646,9 +681,14 @@ class Tank extends RectEntity {
       )
     );
 
+    const enemyFireBase =
+      this.spec?.boss && this.bossPhase === 2
+        ? this.spec.phase2FireBase
+        : this.spec?.fireBase;
+
     this.fireCooldown = playerShot
       ? 0.265 * state.modifiers.fireRate * profile.reloadMultiplier
-      : this.spec.fireBase + Math.random() * 0.22;
+      : enemyFireBase + Math.random() * 0.22;
 
     this.muzzleFlash = 0.055;
     this.recoil = playerShot ? 4.5 : 3.2;
@@ -657,8 +697,26 @@ class Tank extends RectEntity {
     if (playerShot) haptic(5);
   }
 
-  hit(damage = 1) {
-    if (this.spawnShield > 0 || this.dead) return;
+  hit(damage = 1, source = null) {
+    if (this.spawnShield > 0 || this.dead) return { blocked: true, damage: 0 };
+
+    if (this.team === 'enemy' && this.spec?.boss && source?.team === 'player') {
+      const result = bossDamageResult({
+        facing: this.dir,
+        bulletDx: source.dx,
+        bulletDy: source.dy,
+        damage,
+      });
+
+      if (result.blocked) {
+        this.armorFlash = 0.12;
+        addShake(1.6);
+        tone(118, 0.045, 'square', 0.025);
+        return result;
+      }
+
+      damage = result.damage;
+    }
 
     this.hp -= damage;
     this.hitFlash = 0.095;
@@ -669,11 +727,12 @@ class Tank extends RectEntity {
       haptic(20);
       tone(125, 0.09, 'sawtooth', 0.04);
     } else {
-      addShake(this.maxHp >= 4 ? 2.6 : 1.5);
-      tone(170, 0.07, 'sawtooth', 0.028);
+      addShake(this.spec?.boss ? 3.4 : (this.maxHp >= 4 ? 2.6 : 1.5));
+      tone(this.spec?.boss ? 145 : 170, 0.07, 'sawtooth', 0.028);
     }
 
     if (this.hp <= 0) this.dead = true;
+    return { blocked: false, damage };
   }
 
   draw() {
@@ -719,6 +778,23 @@ class Tank extends RectEntity {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(-13, -12, 26, 24);
       ctx.globalAlpha = 1;
+    }
+
+    if (this.team === 'enemy' && this.spec?.boss) {
+      ctx.strokeStyle = this.armorFlash > 0 ? '#fff4b0' : '#d6b85f';
+      ctx.lineWidth = this.armorFlash > 0 ? 5 : 3;
+      ctx.beginPath();
+      ctx.moveTo(12, -14);
+      ctx.lineTo(19, -14);
+      ctx.lineTo(19, 14);
+      ctx.lineTo(12, 14);
+      ctx.stroke();
+
+      if (this.bossPhase === 2) {
+        ctx.strokeStyle = '#ff9a6a';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-15, -14, 30, 28);
+      }
     }
 
     if (this.muzzleFlash > 0) {
@@ -773,12 +849,16 @@ class Tank extends RectEntity {
       ctx.fillRect(-7, -2, 14, 4);
     } else if (this.spec.mark === 'box') {
       ctx.strokeRect(-8, -8, 16, 16);
+    } else if (this.spec.mark === 'boss') {
+      ctx.strokeRect(-9, -9, 18, 18);
+      ctx.fillRect(-3, -6, 6, 12);
+      ctx.fillRect(-6, -3, 12, 6);
     }
   }
 
   drawHealth() {
     if (this.maxHp <= 1 || this.dead) return;
-    const width = 28;
+    const width = this.spec?.boss ? 44 : 28;
     const x = this.cx - width / 2;
     const y = this.y - 7;
     ctx.fillStyle = 'rgba(0,0,0,.55)';
@@ -873,7 +953,11 @@ class Bullet extends RectEntity {
       if (this.team === 'player') {
         for (const enemy of state.enemies) {
           if (!enemy.dead && hit(this, enemy)) {
-            enemy.hit(this.damage);
+            enemy.hit(this.damage, {
+              team: this.team,
+              dx: this.dx,
+              dy: this.dy,
+            });
             this.dead = true;
             break;
           }
@@ -1274,6 +1358,16 @@ function spawnWave() {
     type,
     carrier: i === carrierIndex,
   }));
+
+  if (isBossWave(state.stage, state.waveInStage)) {
+    const bossSpawn = level.enemySpawns[Math.floor(level.enemySpawns.length / 2)];
+    state.waveSpawnQueue.push({
+      spawn: bossSpawn,
+      type: BOSS_TYPE,
+      carrier: false,
+    });
+    showNotice('ÖZEL HEDEF · BURÇKIRAN', 1.25);
+  }
   state.pendingSpawns = state.waveSpawnQueue.length;
   state.spawnClock = 0;
   state.spawnBlockedFor = 0;
@@ -1641,8 +1735,17 @@ function handleDeaths() {
     enemy.counted = true;
     state.score += enemy.spec.score;
     if (enemy.carrier) spawnPowerup(enemy.cx, enemy.cy);
-    burst(enemy.cx, enemy.cy, enemy.spec.color, enemy.type === 'heavy' ? 22 : 15);
-    addShake(enemy.type === 'heavy' ? 7 : 3.5);
+    burst(
+      enemy.cx,
+      enemy.cy,
+      enemy.spec.color,
+      enemy.spec?.boss ? 34 : (enemy.type === 'heavy' ? 22 : 15)
+    );
+    addShake(enemy.spec?.boss ? 10 : (enemy.type === 'heavy' ? 7 : 3.5));
+    if (enemy.spec?.boss) {
+      showNotice('BURÇKIRAN İMHA EDİLDİ', 1.2);
+      tone(82, 0.18, 'sawtooth', 0.045);
+    }
     syncUI();
   }
 
