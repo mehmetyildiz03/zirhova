@@ -49,6 +49,7 @@ async function stepMany(count, dt = 0.05) {
 
 // 1) Fast follower behind a slow tank should form a stable convoy, not jitter.
 await call('sandbox');
+await call('clearP1');
 await call('addEnemy', {
   x: 247, y: 260, type: 'heavy', dir: 'down',
   decisionClock: 999, fireCooldown: 999,
@@ -85,6 +86,7 @@ assert(
 
 // 2) Two enemies meeting head-on in a one-lane corridor must resolve by yield.
 await call('sandbox');
+await call('clearP1');
 for (let row = 3; row <= 10; row++) {
   await call('setTile', 4, row, 'steel');
   await call('setTile', 6, row, 'steel');
@@ -120,6 +122,7 @@ assert(
 
 // 3) Three-tank chain: yield request must propagate to the tank behind.
 await call('sandbox');
+await call('clearP1');
 for (let row = 3; row <= 11; row++) {
   await call('setTile', 4, row, 'steel');
   await call('setTile', 6, row, 'steel');
@@ -161,6 +164,7 @@ for (let i = 0; i < chain.length; i++) {
 
 // 4) Dead end: tank should reverse out once, not oscillate indefinitely.
 await call('sandbox');
+await call('clearP1');
 for (let row = 4; row <= 7; row++) {
   await call('setTile', 4, row, 'steel');
   await call('setTile', 6, row, 'steel');
@@ -193,6 +197,7 @@ assert(
 
 // 5) Congestion-aware pathfinding should avoid an occupied cell if an open detour exists.
 await call('sandbox');
+await call('clearP1');
 await call('addEnemy', {
   x: 247, y: 247, type: 'raider', dir: 'down',
   decisionClock: 999, fireCooldown: 999,
