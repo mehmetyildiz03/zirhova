@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.6-bricks';
+const CACHE = 'zirhova-v0.7-editor';
 const ASSETS = [
   './',
   './index.html',
@@ -7,6 +7,10 @@ const ASSETS = [
   './src/levels.js',
   './src/weaponSystem.js',
   './src/brickSystem.js',
+  './src/levelSchema.js',
+  './src/editor.js',
+  './editor.css',
+  './editor.html',
   './manifest.webmanifest',
   './icons/apple-touch-icon.png',
   './icons/icon-192.png',
