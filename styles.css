@@ -179,6 +179,14 @@ canvas {
   border: 1px solid #38506a;
 }
 
+.controller-status {
+  margin: 12px 0 0 !important;
+  color: #9fb0c1 !important;
+  font-size: 11px !important;
+  letter-spacing: .06em;
+  font-weight: 800;
+}
+
 .install-hint {
   margin: 12px 0 0 !important;
   padding: 10px 12px;
