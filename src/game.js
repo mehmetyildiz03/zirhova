@@ -876,6 +876,7 @@ const state = {
   baseShield: 0,
   waveSpawnQueue: [],
   spawnClock: 0,
+  spawnBlockedFor: 0,
   customLevel: null,
   coop: false,
   player2: null,
@@ -1021,6 +1022,7 @@ function resetGame(coopMode = state.coop) {
     baseShield: 0,
     waveSpawnQueue: [],
     spawnClock: 0,
+    spawnBlockedFor: 0,
     customLevel,
     coop,
     player2: null,
@@ -1050,6 +1052,7 @@ function loadStage({ preserveBaseHp = true, announce = true } = {}) {
   state.pendingSpawns = 0;
   state.waveSpawnQueue = [];
   state.spawnClock = 0;
+  state.spawnBlockedFor = 0;
   state.enemyFreeze = 0;
   state.waveTimer = 0;
   state.pendingRespawns = [];
@@ -1094,6 +1097,7 @@ function spawnWave() {
   }));
   state.pendingSpawns = state.waveSpawnQueue.length;
   state.spawnClock = 0;
+  state.spawnBlockedFor = 0;
   syncUI();
 }
 
@@ -1114,10 +1118,11 @@ function updateSpawnQueue(dt) {
   const enemy = new Tank(pos.x, pos.y, 'enemy', next.type);
   enemy.carrier = next.carrier;
 
-  const placement = findSpawnPlacement(enemy);
+  const placement = findSpawnPlacement(enemy, next.spawn, state.spawnBlockedFor);
   if (!placement) {
     state.waveSpawnQueue.unshift(next);
     state.pendingSpawns = state.waveSpawnQueue.length;
+    state.spawnBlockedFor += 0.16;
     state.spawnClock = 0.16;
     return;
   }
@@ -1127,20 +1132,64 @@ function updateSpawnQueue(dt) {
   state.enemies.push(enemy);
 
   state.pendingSpawns = state.waveSpawnQueue.length;
+  state.spawnBlockedFor = 0;
   state.spawnClock = 0.42;
   syncUI();
 }
 
-function findSpawnPlacement(enemy) {
-  if (canOccupy(enemy, enemy.x, enemy.y)) return { x: enemy.x, y: enemy.y };
+function findSpawnPlacement(enemy, preferredSpawn, blockedFor = 0) {
+  const level = currentLevel();
+  const anchors = [
+    preferredSpawn,
+    ...level.enemySpawns.filter(
+      spawn => spawn[0] !== preferredSpawn[0] || spawn[1] !== preferredSpawn[1]
+    ),
+  ];
 
-  for (const offset of [8, 16, 24, 32, 40, 48]) {
-    if (canOccupy(enemy, enemy.x, enemy.y + offset)) {
-      return { x: enemy.x, y: enemy.y + offset };
+  for (const anchor of anchors) {
+    const origin = gridEntityPosition(anchor, TANK_SIZE);
+    for (const offset of [0, 8, 16, 24, 32, 40, 48]) {
+      const y = origin.y + offset;
+      if (canOccupy(enemy, origin.x, y)) return { x: origin.x, y };
     }
   }
 
-  return null;
+  if (blockedFor < 1.2) return null;
+
+  const livePlayers = activePlayers();
+  const preferredPos = gridEntityPosition(preferredSpawn, TANK_SIZE);
+  const candidates = [];
+
+  const maxRow = blockedFor >= 4 ? ROWS - 1 : Math.floor(ROWS / 2);
+  for (let ty = 0; ty <= maxRow; ty++) {
+    for (let tx = 0; tx < COLS; tx++) {
+      const pos = gridEntityPosition([tx, ty], TANK_SIZE);
+      if (!canOccupy(enemy, pos.x, pos.y)) continue;
+
+      const cx = pos.x + TANK_SIZE / 2;
+      const cy = pos.y + TANK_SIZE / 2;
+      const playerDistance = livePlayers.length
+        ? Math.min(...livePlayers.map(player => Math.abs(player.cx - cx) + Math.abs(player.cy - cy)))
+        : WORLD;
+      const baseDistance = state.base
+        ? Math.abs(state.base.cx - cx) + Math.abs(state.base.cy - cy)
+        : WORLD;
+      const anchorDistance =
+        Math.abs(preferredPos.x - pos.x) + Math.abs(preferredPos.y - pos.y);
+
+      // Prefer safety first, then upper-map / original-spawn proximity.
+      const score =
+        playerDistance * 2 +
+        Math.min(baseDistance, 240) -
+        ty * 10 -
+        anchorDistance * 0.08;
+
+      candidates.push({ x: pos.x, y: pos.y, score });
+    }
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0] || null;
 }
 
 function chooseEnemyType(difficulty, index, count) {
