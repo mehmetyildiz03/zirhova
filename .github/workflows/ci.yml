@@ -19,6 +19,7 @@ jobs:
           node --check src/brickSystem.js
           node --check src/levelSchema.js
           node --check src/editor.js
+          node --check src/controllerSystem.js
       - name: Validate web manifest JSON
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest ok')"
       - name: Validate level data
@@ -36,6 +37,7 @@ jobs:
           test -f src/brickSystem.js
           test -f src/levelSchema.js
           test -f src/editor.js
+          test -f src/controllerSystem.js
           test -f editor.html
           test -f editor.css
           test -f icons/icon-192.png
