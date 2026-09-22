@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.8.9-performance-stress';
+const CACHE = 'zirhova-v0.9-balance';
 const ASSETS = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const ASSETS = [
   './src/levelSchema.js',
   './src/controllerSystem.js',
   './src/navigationSystem.js',
+  './src/balanceSystem.js',
   './src/editor.js',
   './editor.css',
   './editor.html',
