@@ -510,6 +510,25 @@ canvas {
     width: min(100%, 860px);
   }
 
+  .topbar {
+    display: block;
+  }
+
+  .topbar > div:first-child {
+    display: none;
+  }
+
+  .hud {
+    width: 100%;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+
+  .hud span,
+  .hud-button {
+    min-width: 0;
+    text-align: center;
+  }
+
   .game-wrap {
     width: min(84vw, calc(100dvh - 300px), 700px);
   }
