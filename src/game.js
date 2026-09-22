@@ -2169,7 +2169,7 @@ if (window.location.hostname === '127.0.0.1') {
         coop: state.coop,
         lives: state.lives,
         activePlayers: activePlayers().length,
-        p1: state.player ? { x: state.player.x, y: state.player.y, dir: state.player.dir, dead: state.player.dead } : null,
+        p1: state.player ? { x: state.player.x, y: state.player.y, dir: state.player.dir, fireCooldown: state.player.fireCooldown, dead: state.player.dead } : null,
         p2: state.player2 ? { x: state.player2.x, y: state.player2.y, dir: state.player2.dir, dead: state.player2.dead } : null,
         touchInput: { ...touchInput },
         bullets: state.bullets.length,
