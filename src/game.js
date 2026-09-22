@@ -854,6 +854,69 @@ function currentLevel() {
   return state.customLevel || LEVELS[(state.stage - 1) % LEVELS.length];
 }
 
+function activePlayers() {
+  return [state.player, state.player2].filter(player => player && !player.dead);
+}
+
+function nearestLivePlayer(source) {
+  let best = null;
+  let bestDistance = Infinity;
+
+  for (const player of activePlayers()) {
+    const distance = Math.abs(player.cx - source.cx) + Math.abs(player.cy - source.cy);
+    if (distance < bestDistance) {
+      best = player;
+      bestDistance = distance;
+    }
+  }
+
+  return best;
+}
+
+function pollGamepads() {
+  const pads = Array.from(navigator.getGamepads?.() || []).filter(Boolean);
+  padInput1 = readGamepadActions(pads[0]);
+  padInput2 = readGamepadActions(pads[1]);
+
+  if (UI.controllerStatus) {
+    if (!pads.length) UI.controllerStatus.textContent = 'GAMEPAD: bağlı değil';
+    else if (pads.length === 1) UI.controllerStatus.textContent = 'GAMEPAD: 1 bağlı';
+    else UI.controllerStatus.textContent = `GAMEPAD: ${pads.length} bağlı`;
+  }
+}
+
+function getPlayerActions(slot) {
+  if (slot === 2) return mergeActions(keyInput2, padInput2);
+
+  if (state.coop) {
+    return mergeActions(touchInput, keyInput1, padInput1);
+  }
+
+  return mergeActions(touchInput, keyInput1, keyInput2, padInput1, padInput2);
+}
+
+function findSecondarySpawnCell(grid, primary, base) {
+  const [px, py] = primary;
+  const candidates = [
+    [px + 1, py],
+    [px - 1, py],
+    [px + 2, py],
+    [px - 2, py],
+    [px, py - 1],
+    [px + 1, py - 1],
+    [px - 1, py - 1],
+  ];
+
+  for (const [x, y] of candidates) {
+    if (x < 0 || y < 0 || x >= COLS || y >= ROWS) continue;
+    if (x === base[0] && y === base[1]) continue;
+    const tile = grid[y]?.[x];
+    if (tile && ['floor', 'brush', 'ice'].includes(tile.type)) return [x, y];
+  }
+
+  return [px, Math.max(0, py - 1)];
+}
+
 function makeTile(type = 'floor') {
   const hp = type === 'breakableSteel' ? 3 : 999;
   const mask = type === 'brick' ? BRICK_FULL_MASK : 0;
@@ -892,10 +955,11 @@ function gridEntityPosition([tx, ty], size) {
   };
 }
 
-function resetGame() {
+function resetGame(coopMode = state.coop) {
   state.runToken++;
   clearAllInput();
   const customLevel = readCustomLevel();
+  const coop = Boolean(coopMode);
 
   Object.assign(state, {
     running: true,
@@ -906,7 +970,7 @@ function resetGame() {
     stage: 1,
     wave: 1,
     waveInStage: 1,
-    lives: 3,
+    lives: coop ? 5 : 3,
     enemies: [],
     bullets: [],
     particles: [],
@@ -924,6 +988,9 @@ function resetGame() {
     waveSpawnQueue: [],
     spawnClock: 0,
     customLevel,
+    coop,
+    player2: null,
+    player2Spawn: null,
   });
 
   loadStage({ preserveBaseHp: false, announce: true });
@@ -952,7 +1019,16 @@ function loadStage({ preserveBaseHp = true, announce = true } = {}) {
   const bp = gridEntityPosition(level.baseSpawn, 42);
   const pp = gridEntityPosition(level.playerSpawn, TANK_SIZE);
   state.base = new Base(bp.x, bp.y, previousHp);
-  state.player = new Tank(pp.x, pp.y, 'player');
+  state.player = new Tank(pp.x, pp.y, 'player', 'raider', 1);
+
+  state.player2 = null;
+  state.player2Spawn = null;
+  if (state.coop) {
+    const spawn2 = findSecondarySpawnCell(state.grid, level.playerSpawn, level.baseSpawn);
+    const p2 = gridEntityPosition(spawn2, TANK_SIZE);
+    state.player2Spawn = spawn2;
+    state.player2 = new Tank(p2.x, p2.y, 'player', 'raider', 2);
+  }
 
   if (announce) {
     showNotice(
