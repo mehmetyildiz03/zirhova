@@ -52,7 +52,13 @@ assert(phase2.tones.length === 2, 'Boss phase-two alert should have two pulses')
 const utility = pickupRecipe('repair');
 const arsenal = pickupRecipe('arsenal');
 assert(arsenal.tones.length === 2 && utility.tones.length === 2, 'Pickup recipes incomplete');
-assert(arsenal.tones[0].endFreq > utility.tones[0].endFreq, 'Arsenal pickup should rise higher than utility pickup');
+const arsenalPeak = Math.max(...arsenal.tones.map(tone => tone.endFreq));
+const utilityPeak = Math.max(...utility.tones.map(tone => tone.endFreq));
+assert(
+  arsenalPeak > utilityPeak,
+  'Arsenal pickup should reach a higher final pitch than utility pickup',
+  { arsenalPeak, utilityPeak }
+);
 
 console.log('PASS audio recipes', {
   voiceBudget: MAX_AUDIO_VOICES,
