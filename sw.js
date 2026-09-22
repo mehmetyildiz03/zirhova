@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.8.7-ai-traffic';
+const CACHE = 'zirhova-v0.8.8-long-run';
 const ASSETS = [
   './',
   './index.html',
