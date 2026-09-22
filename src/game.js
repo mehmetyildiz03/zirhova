@@ -940,6 +940,7 @@ class Bullet extends RectEntity {
             if (result.destroyed) tile.type = 'floor';
           } else {
             debris(this.cx, this.cy, COLORS.steelLight, 3);
+            audio.impact('steel');
           }
         } else {
           debris(this.cx, this.cy, COLORS.steelLight, 3);
@@ -3011,6 +3012,32 @@ if (window.location.hostname === '127.0.0.1') {
       updatePowerups(seconds);
       updateParticles(seconds);
       return testSnapshot();
+    },
+
+    audioDebug() {
+      return audio.debug();
+    },
+
+    exerciseAudio() {
+      audio.unlock();
+
+      for (let i = 0; i < 48; i++) {
+        audio.track(1, 1);
+        audio.cannon({
+          player: i % 2 === 0,
+          strong: i % 3 === 0,
+          tier: (i % 3) + 1,
+          boss: i % 11 === 0,
+        });
+        audio.impact(i % 3 === 0 ? 'brick' : 'steel');
+      }
+
+      audio.bossAlert(1);
+      audio.bossAlert(2);
+      audio.pickup('arsenal');
+      audio.explosion({ boss: true });
+
+      return audio.debug();
     },
 
     seedStressLoad({
