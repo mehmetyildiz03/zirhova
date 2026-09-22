@@ -154,11 +154,8 @@ assert(aged.powerupCount === 0, 'Powerups survived far beyond their lifetime', a
 assert(aged.bulletCount === 0, 'Bullets survived far beyond their playable lifetime', aged);
 
 // Restart after a long run must be a true clean slate.
-await page.click('#restartBtn').catch(() => {});
-if ((await page.locator('#gameOverOverlay.show').count()) === 0) {
-  // Normal long-run state has no game-over overlay; invoke the normal start path instead.
-  await page.evaluate(() => document.querySelector('#startBtn').click());
-}
+// Use the same reset path as the 1-player start action without waiting for a hidden overlay button.
+await page.evaluate(() => document.querySelector('#startBtn').click());
 await page.waitForTimeout(100);
 
 const restarted = await call('snapshot');
