@@ -1,10 +1,11 @@
-const CACHE = 'zirhova-v0.4.1-field';
+const CACHE = 'zirhova-v0.5-weapon';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './src/game.js',
   './src/levels.js',
+  './src/weaponSystem.js',
   './manifest.webmanifest',
   './icons/apple-touch-icon.png',
   './icons/icon-192.png',
