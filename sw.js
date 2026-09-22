@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.8-coop';
+const CACHE = 'zirhova-v0.8.1-mobile-controls';
 const ASSETS = [
   './',
   './index.html',
@@ -32,15 +32,56 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE);
+
+  try {
+    const response = await fetch(request);
+    if (response && response.ok) {
+      cache.put(request, response.clone()).catch(() => {});
+    }
+    return response;
+  } catch {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+
+    if (request.mode === 'navigate') {
+      return cache.match('./index.html');
+    }
+
+    throw new Error('offline-miss');
+  }
+}
+
+async function cacheFirst(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+
+  const response = await fetch(request);
+  if (response && response.ok) {
+    const cache = await caches.open(CACHE);
+    cache.put(request, response.clone()).catch(() => {});
+  }
+  return response;
+}
+
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+
+  const destination = event.request.destination;
+  const freshCode =
+    event.request.mode === 'navigate' ||
+    destination === 'script' ||
+    destination === 'style' ||
+    url.pathname.endsWith('.json') ||
+    url.pathname.endsWith('.webmanifest');
+
   event.respondWith(
-    caches.match(event.request).then(cached =>
-      cached ||
-      fetch(event.request).catch(() => {
-        if (event.request.mode === 'navigate') return caches.match('./index.html');
-        return undefined;
-      })
-    )
+    freshCode
+      ? networkFirst(event.request)
+      : cacheFirst(event.request)
   );
 });
