@@ -28,6 +28,8 @@ jobs:
         run: node scripts/validate-combat.mjs
       - name: Validate micro-brick physics
         run: node scripts/validate-bricks.mjs
+      - name: Validate controller mappings
+        run: node scripts/validate-controls.mjs
       - name: Verify required PWA files
         run: |
           test -f index.html
@@ -54,3 +56,4 @@ jobs:
           node scripts/responsive-smoke.mjs
           node scripts/gameplay-smoke.mjs
           node scripts/editor-smoke.mjs
+          node scripts/coop-smoke.mjs
