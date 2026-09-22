@@ -27,36 +27,35 @@ export function brickContainsPoint(mask, localX, localY, tileSize) {
   return brickHasCell(mask, col, row);
 }
 
+function pairedBand(index) {
+  return index < BRICK_GRID / 2 ? [0, 1] : [2, 3];
+}
+
 export function damageBrick(mask, localX, localY, dx, dy, power, tileSize) {
   let nextMask = mask;
   const { col, row } = brickCellAt(localX, localY, tileSize);
   const strength = Math.max(1, Math.floor(Number(power) || 1));
 
-  const cells = [[col, row]];
+  // Keep 4x4 collision precision internally, but destroy in large readable chunks:
+  // standard = 2x2 quarter-wall, strong = 3x2, maximum = 4x2 half-wall.
+  const depth = Math.min(BRICK_GRID, strength + 1);
+  const cells = [];
 
-  // Shell width removes a second micro-brick perpendicular to travel.
   if (dx !== 0) {
-    cells.push([col, row < BRICK_GRID - 1 ? row + 1 : row - 1]);
+    const rows = pairedBand(row);
+    const step = Math.sign(dx) || 1;
+
+    for (let distance = 0; distance < depth; distance++) {
+      const targetCol = col + step * distance;
+      for (const targetRow of rows) cells.push([targetCol, targetRow]);
+    }
   } else {
-    cells.push([col < BRICK_GRID - 1 ? col + 1 : col - 1, row]);
-  }
+    const cols = pairedBand(col);
+    const step = Math.sign(dy) || 1;
 
-  // Stronger rounds penetrate further into the wall.
-  for (let step = 1; step < strength; step++) {
-    const forwardCol = col + Math.sign(dx) * step;
-    const forwardRow = row + Math.sign(dy) * step;
-    cells.push([forwardCol, forwardRow]);
-
-    if (dx !== 0) {
-      cells.push([
-        forwardCol,
-        row < BRICK_GRID - 1 ? row + 1 : row - 1,
-      ]);
-    } else {
-      cells.push([
-        col < BRICK_GRID - 1 ? col + 1 : col - 1,
-        forwardRow,
-      ]);
+    for (let distance = 0; distance < depth; distance++) {
+      const targetRow = row + step * distance;
+      for (const targetCol of cols) cells.push([targetCol, targetRow]);
     }
   }
 
