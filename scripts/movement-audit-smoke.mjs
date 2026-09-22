@@ -183,7 +183,29 @@ assert(
   respawned
 );
 
-// 8) Normal wave spawning must never stack live enemy rectangles significantly.
+// 8) If every configured enemy spawn lane is blocked, fallback spawning must
+// eventually find a safe alternative instead of soft-locking the wave.
+await testCall('sandbox');
+for (const x of [0, 7, 15]) {
+  await testCall('setTile', x, 0, 'steel');
+  await testCall('setTile', x, 1, 'steel');
+}
+await testCall('setSpawnQueue', [{ spawn: [0, 0], type: 'raider', carrier: false }]);
+
+let fallbackSpawn = null;
+for (let attempt = 0; attempt < 16; attempt++) {
+  fallbackSpawn = await testCall('stepSpawn', 0.2);
+  if (fallbackSpawn.snapshot.pendingSpawns === 0) break;
+}
+
+assert(
+  fallbackSpawn?.snapshot.pendingSpawns === 0 &&
+  fallbackSpawn.snapshot.enemyRects.length === 1,
+  'Blocked configured spawn lanes starved the wave instead of using safe fallback',
+  fallbackSpawn
+);
+
+// 9) Normal wave spawning must never stack live enemy rectangles significantly.
 await page.reload({ waitUntil: 'networkidle' });
 await page.click('#startBtn');
 for (let sample = 0; sample < 24; sample++) {
@@ -218,6 +240,7 @@ console.log('PASS movement audit', {
   baseContactEscape: 'ok',
   iceExitMomentum: 'ok',
   blockedRespawnRetry: 'ok',
+  spawnStarvationFallback: 'ok',
   enemySpawnOverlap: 'none',
 });
 
