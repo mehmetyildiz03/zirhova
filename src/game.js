@@ -4,6 +4,7 @@ import { BRICK_GRID, BRICK_FULL_MASK, brickContainsPoint, damageBrick, brickBloc
 import { validateCustomLevel } from './levelSchema.js';
 import { freshActions, mergeActions, readGamepadActions, pickDirection } from './controllerSystem.js';
 import { NAV_STEP, isNavAlignedStart, navStartCandidates } from './navigationSystem.js';
+import { waveEnemyCount, buildEnemyRoster, carrierIndexForWave, shouldDropArsenal } from './balanceSystem.js';
 
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
@@ -1031,6 +1032,7 @@ const state = {
   shake: 0,
   runToken: 0,
   weaponTier: 1,
+  arsenalMisses: 0,
   powerups: [],
   enemyFreeze: 0,
   baseShield: 0,
@@ -1182,6 +1184,7 @@ function resetGame(coopMode = state.coop) {
     upgradeLevels: {},
     shake: 0,
     weaponTier: 1,
+    arsenalMisses: 0,
     powerups: [],
     enemyFreeze: 0,
     baseShield: 0,
@@ -1257,13 +1260,18 @@ function loadStage({ preserveBaseHp = true, announce = true } = {}) {
 
 function spawnWave() {
   const level = currentLevel();
-  const difficulty = state.wave + Math.floor((state.stage - 1) * 0.8);
-  const count = Math.min(3 + state.waveInStage + Math.floor(state.stage / 2), 11);
-  const carrierIndex = Math.min(count - 1, Math.max(1, Math.floor(count * 0.55)));
+  const count = waveEnemyCount(state.stage, state.waveInStage);
+  const roster = buildEnemyRoster({
+    stage: state.stage,
+    wave: state.wave,
+    waveInStage: state.waveInStage,
+    count,
+  });
+  const carrierIndex = carrierIndexForWave(count, state.waveInStage);
 
-  state.waveSpawnQueue = Array.from({ length: count }, (_, i) => ({
+  state.waveSpawnQueue = roster.map((type, i) => ({
     spawn: level.enemySpawns[i % level.enemySpawns.length],
-    type: chooseEnemyType(difficulty, i, count),
+    type,
     carrier: i === carrierIndex,
   }));
   state.pendingSpawns = state.waveSpawnQueue.length;
@@ -1363,19 +1371,6 @@ function findSpawnPlacement(enemy, preferredSpawn, blockedFor = 0) {
   return candidates[0] || null;
 }
 
-function chooseEnemyType(difficulty, index, count) {
-  if (index === count - 1 && difficulty >= 7) return 'heavy';
-  if (index === count - 1 && difficulty >= 4) return 'hunter';
-
-  const pool = ['raider', 'raider'];
-  if (difficulty >= 2) pool.push('scout');
-  if (difficulty >= 3) pool.push('hunter');
-  if (difficulty >= 5) pool.push('breacher');
-  if (difficulty >= 7) pool.push('heavy');
-
-  return pool[Math.floor(Math.random() * pool.length)];
-}
-
 function advanceWaveIfNeeded(dt) {
   if (state.pendingSpawns > 0 || state.enemies.some(enemy => !enemy.dead)) {
     state.waveTimer = 0;
@@ -1440,7 +1435,15 @@ function pickUpgradeChoices(count) {
     return (state.upgradeLevels[upgrade.id] || 0) < upgrade.max;
   });
 
-  return shuffle(available).slice(0, Math.min(count, available.length));
+  const permanent = shuffle(available.filter(upgrade => !upgrade.repeatable));
+  const choices = permanent.slice(0, Math.min(2, count));
+  const remaining = available.filter(upgrade => !choices.includes(upgrade));
+
+  choices.push(
+    ...shuffle(remaining).slice(0, Math.max(0, count - choices.length))
+  );
+
+  return choices.slice(0, Math.min(count, available.length));
 }
 
 function chooseUpgrade(upgrade) {
@@ -1459,9 +1462,17 @@ function chooseUpgrade(upgrade) {
 
 function spawnPowerup(x, y) {
   const utilityTypes = Object.keys(POWERUP_TYPES).filter(type => type !== 'arsenal');
-  const type = state.weaponTier < MAX_WEAPON_TIER && Math.random() < 0.38
+  const arsenalRoll = shouldDropArsenal({
+    weaponTier: state.weaponTier,
+    maxWeaponTier: MAX_WEAPON_TIER,
+    misses: state.arsenalMisses,
+  });
+  state.arsenalMisses = arsenalRoll.nextMisses;
+
+  const type = arsenalRoll.arsenal
     ? 'arsenal'
     : utilityTypes[Math.floor(Math.random() * utilityTypes.length)];
+
   state.powerups.push(new PowerUp(x, y, type));
   showNotice(`${POWERUP_TYPES[type].name} SAHADA`, 0.8);
   tone(760, 0.06, 'square', 0.022);
