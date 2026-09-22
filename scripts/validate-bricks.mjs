@@ -17,15 +17,16 @@ assert(countBrickCells(BRICK_FULL_MASK) === 16, 'Full brick wall must have 16 mi
 
 const tileSize = 48;
 
-// Standard right-moving shell entering top-left removes a two-cell vertical slice.
+// Standard shell removes one readable 2x2 quarter-wall chunk.
 const standard = damageBrick(BRICK_FULL_MASK, 3, 3, 1, 0, 1, tileSize);
-assert(countBrickCells(standard) === 14, 'Standard shell should remove two micro-bricks');
+assert(countBrickCells(standard) === 12, 'Standard shell should remove a 2x2 wall chunk');
 assert(!brickContainsPoint(standard, 3, 3, tileSize), 'Impact cell should be empty after hit');
 
 // Strong shot must penetrate deeper than a standard shot.
 const strong = damageBrick(BRICK_FULL_MASK, 3, 3, 1, 0, 2, tileSize);
 assert(countBrickCells(strong) < countBrickCells(standard), 'Strong shot must remove more wall');
-assert(!brickContainsPoint(strong, 15, 3, tileSize), 'Strong shot must penetrate forward');
+assert(countBrickCells(strong) === 10, 'Strong shot should remove a deeper 3x2 chunk');
+assert(!brickContainsPoint(strong, 27, 3, tileSize), 'Strong shot must penetrate forward');
 
 // Collision must respect the actual remaining micro-bricks.
 const onlyBottomRight = brickBit(3, 3);
@@ -45,4 +46,4 @@ for (const y of [3, 15, 27, 39]) {
 }
 assert(countBrickCells(mask) === 0, 'Repeated penetrating shots must be able to clear the wall');
 
-console.log('Validated directional micro-brick destruction.');
+console.log('Validated large-chunk directional brick destruction.');
