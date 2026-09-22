@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.8.2-brick-chunks';
+const CACHE = 'zirhova-v0.8.3-nav-grid';
 const ASSETS = [
   './',
   './index.html',
@@ -9,6 +9,7 @@ const ASSETS = [
   './src/brickSystem.js',
   './src/levelSchema.js',
   './src/controllerSystem.js',
+  './src/navigationSystem.js',
   './src/editor.js',
   './editor.css',
   './editor.html',
