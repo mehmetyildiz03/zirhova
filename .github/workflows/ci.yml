@@ -15,15 +15,19 @@ jobs:
         run: |
           node --check src/game.js
           node --check src/levels.js
+          node --check src/weaponSystem.js
       - name: Validate web manifest JSON
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest ok')"
       - name: Validate level data
         run: node scripts/validate-levels.mjs
+      - name: Validate combat mechanics
+        run: node scripts/validate-combat.mjs
       - name: Verify required PWA files
         run: |
           test -f index.html
           test -f styles.css
           test -f sw.js
+          test -f src/weaponSystem.js
           test -f icons/icon-192.png
           test -f icons/icon-512.png
           test -f icons/apple-touch-icon.png
