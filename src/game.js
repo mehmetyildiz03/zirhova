@@ -6,6 +6,7 @@ import { freshActions, mergeActions, readGamepadActions, pickDirection } from '.
 import { NAV_STEP, isNavAlignedStart, navStartCandidates } from './navigationSystem.js';
 import { waveEnemyCount, buildEnemyRoster, carrierIndexForWave, shouldDropArsenal } from './balanceSystem.js';
 import { BOSS_TYPE, isBossWave, bossStats, bossPhase, bossDamageResult } from './bossSystem.js';
+import { createAudioSystem } from './audioSystem.js';
 
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
@@ -264,20 +265,10 @@ const UPGRADES = [
   },
 ];
 
-let audioCtx = null;
+const audio = createAudioSystem();
+
 function tone(freq = 220, duration = 0.05, type = 'square', gain = 0.04) {
-  try {
-    audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
-    const osc = audioCtx.createOscillator();
-    const amp = audioCtx.createGain();
-    osc.type = type;
-    osc.frequency.value = freq;
-    amp.gain.value = gain;
-    osc.connect(amp).connect(audioCtx.destination);
-    osc.start();
-    amp.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
-    osc.stop(audioCtx.currentTime + duration);
-  } catch {}
+  audio.tone(freq, duration, type, gain);
 }
 
 function haptic(ms = 8) {
@@ -343,7 +334,7 @@ class Tank extends RectEntity {
         this.speed = nextPhase === 2 ? this.spec.phase2Speed : this.spec.speed;
         showNotice('BURÇKIRAN · SALDIRI FAZI', 1.0);
         addShake(4);
-        tone(105, 0.12, 'sawtooth', 0.035);
+        audio.bossAlert(2);
       }
     }
 
@@ -363,7 +354,10 @@ class Tank extends RectEntity {
         this.dir = dir;
         this.momentumDir = dir;
         const d = DIRS[dir];
-        this.move(d.x * this.speed * dt, d.y * this.speed * dt);
+        const moved = this.move(d.x * this.speed * dt, d.y * this.speed * dt);
+        if (moved && !onIce) {
+          audio.track(this.playerSlot, this.speed / 162);
+        }
       }
     } else if (onIce && this.momentumDir) {
       const d = DIRS[this.momentumDir];
@@ -693,7 +687,12 @@ class Tank extends RectEntity {
     this.muzzleFlash = 0.055;
     this.recoil = playerShot ? 4.5 : 3.2;
     addShake(playerShot ? 1.1 : 0.45);
-    tone(playerShot ? 410 : 225, 0.035, 'square', playerShot ? 0.028 : 0.02);
+    audio.cannon({
+      player: playerShot,
+      strong: playerShot ? (damage > 1 || state.weaponTier >= 2) : Boolean(this.spec?.strongShot),
+      tier: playerShot ? state.weaponTier : 1,
+      boss: Boolean(this.spec?.boss),
+    });
     if (playerShot) haptic(5);
   }
 
@@ -711,7 +710,7 @@ class Tank extends RectEntity {
       if (result.blocked) {
         this.armorFlash = 0.12;
         addShake(1.6);
-        tone(118, 0.045, 'square', 0.025);
+        audio.impact('bossArmor');
         return result;
       }
 
@@ -910,6 +909,7 @@ class Bullet extends RectEntity {
 
       if (terrainCollision) {
         if (tile.type === 'brick') {
+          audio.impact('brick');
           const before = countBrickCells(tile.mask);
           tile.mask = damageBrick(
             tile.mask,
@@ -936,17 +936,17 @@ class Bullet extends RectEntity {
             tile.hp = result.hp;
             debris(this.cx, this.cy, COLORS.breakableSteelWeak, 6);
             addShake(result.destroyed ? 3.2 : 1.5);
-            tone(result.destroyed ? 115 : 145, 0.055, 'square', 0.024);
+            audio.impact('steel');
             if (result.destroyed) tile.type = 'floor';
           } else {
             debris(this.cx, this.cy, COLORS.steelLight, 3);
           }
         } else {
           debris(this.cx, this.cy, COLORS.steelLight, 3);
+          audio.impact('steel');
         }
 
         this.dead = true;
-        tone(95, 0.04, 'square', 0.018);
         break;
       }
 
@@ -1241,6 +1241,7 @@ function gridEntityPosition([tx, ty], size) {
 }
 
 function resetGame(coopMode = state.coop) {
+  audio.unlock();
   state.runToken++;
   nextEnemyTrafficId = 1;
   clearAllInput();
@@ -1367,6 +1368,7 @@ function spawnWave() {
       carrier: false,
     });
     showNotice('ÖZEL HEDEF · BURÇKIRAN', 1.25);
+    audio.bossAlert(1);
   }
   state.pendingSpawns = state.waveSpawnQueue.length;
   state.spawnClock = 0;
@@ -1583,7 +1585,7 @@ function applyPowerup(type) {
     } else {
       state.score += 250;
       showNotice('NAMLU MAKS · +250', 1.05);
-      tone(980, 0.06, 'square', 0.025);
+      audio.pickup('arsenal');
       syncUI();
       return;
     }
@@ -1609,7 +1611,7 @@ function applyPowerup(type) {
   }
 
   showNotice(notice, 1.05);
-  tone(920, 0.07, 'square', 0.03);
+  audio.pickup(type);
   haptic(14);
   syncUI();
 }
@@ -1657,7 +1659,7 @@ function damageBase() {
   if (state.baseShield > 0) {
     state.base.hitFlash = 0.12;
     debris(state.base.cx, state.base.cy, '#75d5a7', 5);
-    tone(310, 0.055, 'square', 0.022);
+    audio.impact('steel');
     return;
   }
 
@@ -1665,7 +1667,7 @@ function damageBase() {
   state.base.hitFlash = 0.18;
   addShake(7);
   debris(state.base.cx, state.base.cy, COLORS.baseCore, 8);
-  tone(72, 0.14, 'sawtooth', 0.05);
+  audio.explosion({ heavy: true });
   haptic(24);
   syncUI();
 
@@ -1742,9 +1744,12 @@ function handleDeaths() {
       enemy.spec?.boss ? 34 : (enemy.type === 'heavy' ? 22 : 15)
     );
     addShake(enemy.spec?.boss ? 10 : (enemy.type === 'heavy' ? 7 : 3.5));
+    audio.explosion({
+      boss: Boolean(enemy.spec?.boss),
+      heavy: enemy.type === 'heavy',
+    });
     if (enemy.spec?.boss) {
       showNotice('BURÇKIRAN İMHA EDİLDİ', 1.2);
-      tone(82, 0.18, 'sawtooth', 0.045);
     }
     syncUI();
   }
