@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.5-weapon';
+const CACHE = 'zirhova-v0.5.1-weapon';
 const ASSETS = [
   './',
   './index.html',
