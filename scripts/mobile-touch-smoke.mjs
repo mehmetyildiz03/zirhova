@@ -111,6 +111,12 @@ for (const testCase of cases) {
     throw new Error(`${testCase.name}: tank did not rotate right after D-pad slide`);
   }
 
+  if (!snap.p1?.navY) {
+    throw new Error(
+      `${testCase.name}: horizontal touch turn did not snap Y to a 16px navigation lane`
+    );
+  }
+
   await session.send('Input.dispatchTouchEvent', {
     type: 'touchEnd',
     touchPoints: [],
