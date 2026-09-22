@@ -1,4 +1,5 @@
 import { LEVELS } from './levels.js';
+import { MAX_WEAPON_TIER, upgradeWeaponTier, weaponProfile, damageBreakableSteel } from './weaponSystem.js';
 
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
@@ -11,6 +12,7 @@ const UI = {
   lives: document.querySelector('#lives'),
   baseHp: document.querySelector('#baseHp'),
   remaining: document.querySelector('#remaining'),
+  weaponTier: document.querySelector('#weaponTier'),
   bestRun: document.querySelector('#bestRun'),
   intro: document.querySelector('#introOverlay'),
   gameOver: document.querySelector('#gameOverOverlay'),
@@ -46,6 +48,8 @@ const COLORS = {
   brickLight: '#c18055',
   steel: '#5b6976',
   steelLight: '#9aabba',
+  breakableSteel: '#66788a',
+  breakableSteelWeak: '#d9b36b',
   water: '#17465f',
   waterLine: '#2c7797',
   ice: '#9dd8e8',
@@ -159,6 +163,7 @@ const POWERUP_TYPES = {
   fortify: { name: 'İSTİHKÂM KİTİ', glyph: 'İ', color: '#75d5a7' },
   repair: { name: 'SAHA ONARIMI', glyph: '+', color: '#7ee0a5' },
   reserve: { name: 'YEDEK MÜRETTEBAT', glyph: '1', color: '#f0d96b' },
+  arsenal: { name: 'NAMLU MODÜLÜ', glyph: 'N', color: '#ffd36b' },
 };
 
 const UPGRADES = [
@@ -411,9 +416,10 @@ class Tank extends RectEntity {
 
     const d = DIRS[this.dir];
     const playerShot = this.team === 'player';
+    const profile = playerShot ? weaponProfile(state.weaponTier) : null;
     const damage = playerShot ? state.modifiers.shotPower : 1;
     const bulletSpeed = playerShot
-      ? 410 * state.modifiers.bulletSpeed
+      ? 410 * state.modifiers.bulletSpeed * profile.bulletSpeedMultiplier
       : (this.spec?.strongShot ? 430 : 395);
 
     state.bullets.push(
@@ -426,13 +432,14 @@ class Tank extends RectEntity {
         {
           damage,
           speed: bulletSpeed,
-          strong: playerShot ? damage > 1 : Boolean(this.spec?.strongShot),
+          strong: playerShot ? (damage > 1 || state.weaponTier >= 2) : Boolean(this.spec?.strongShot),
+          canBreakSteel: playerShot && profile.canBreakSteel,
         }
       )
     );
 
     this.fireCooldown = playerShot
-      ? 0.265 * state.modifiers.fireRate
+      ? 0.265 * state.modifiers.fireRate * profile.reloadMultiplier
       : this.spec.fireBase + Math.random() * 0.22;
 
     this.muzzleFlash = 0.055;
@@ -486,6 +493,12 @@ class Tank extends RectEntity {
     ctx.fillStyle = color;
     ctx.fillRect(0, -3, 26, 6);
     ctx.fillRect(17, -5, 10, 10);
+
+    if (this.team === 'player' && state.weaponTier > 1) {
+      ctx.fillStyle = state.weaponTier >= 3 ? '#fff0a1' : '#fff7cc';
+      ctx.fillRect(8, -6, 4, 12);
+      if (state.weaponTier >= 3) ctx.fillRect(14, -6, 4, 12);
+    }
 
     if (this.team === 'enemy') this.drawEnemyMark();
 
@@ -572,6 +585,7 @@ class Bullet extends RectEntity {
     this.damage = options.damage ?? 1;
     this.speed = options.speed ?? 405;
     this.strong = Boolean(options.strong);
+    this.canBreakSteel = Boolean(options.canBreakSteel);
   }
 
   update(dt) {
@@ -597,6 +611,21 @@ class Bullet extends RectEntity {
           if (tile.hp <= 0) {
             tile.type = 'floor';
             addShake(1.4);
+          }
+        } else if (tile.type === 'breakableSteel') {
+          const result = damageBreakableSteel(
+            tile.hp,
+            this.team === 'player' && this.canBreakSteel
+          );
+
+          if (result.damaged) {
+            tile.hp = result.hp;
+            debris(this.cx, this.cy, COLORS.breakableSteelWeak, 6);
+            addShake(result.destroyed ? 3.2 : 1.5);
+            tone(result.destroyed ? 115 : 145, 0.055, 'square', 0.024);
+            if (result.destroyed) tile.type = 'floor';
+          } else {
+            debris(this.cx, this.cy, COLORS.steelLight, 3);
           }
         } else {
           debris(this.cx, this.cy, COLORS.steelLight, 3);
@@ -751,6 +780,7 @@ const state = {
   upgradeLevels: {},
   shake: 0,
   runToken: 0,
+  weaponTier: 1,
   powerups: [],
   enemyFreeze: 0,
   baseShield: 0,
@@ -763,7 +793,8 @@ function currentLevel() {
 }
 
 function makeTile(type = 'floor') {
-  return { type, hp: type === 'brick' ? 2 : 999 };
+  const hp = type === 'brick' ? 2 : (type === 'breakableSteel' ? 3 : 999);
+  return { type, hp };
 }
 
 function buildMap(level) {
@@ -774,6 +805,7 @@ function buildMap(level) {
 
   for (const [x, y] of level.bricks) grid[y][x] = makeTile('brick');
   for (const [x, y] of level.steel) grid[y][x] = makeTile('steel');
+  for (const [x, y] of level.breakableSteel || []) grid[y][x] = makeTile('breakableSteel');
   for (const [x, y] of level.water) grid[y][x] = makeTile('water');
   for (const [x, y] of level.ice || []) grid[y][x] = makeTile('ice');
   for (const [x, y] of level.brush || []) grid[y][x] = makeTile('brush');
@@ -821,6 +853,7 @@ function resetGame() {
     modifiers: defaultModifiers(),
     upgradeLevels: {},
     shake: 0,
+    weaponTier: 1,
     powerups: [],
     enemyFreeze: 0,
     baseShield: 0,
@@ -1010,8 +1043,10 @@ function chooseUpgrade(upgrade) {
 }
 
 function spawnPowerup(x, y) {
-  const keys = Object.keys(POWERUP_TYPES);
-  const type = keys[Math.floor(Math.random() * keys.length)];
+  const utilityTypes = Object.keys(POWERUP_TYPES).filter(type => type !== 'arsenal');
+  const type = state.weaponTier < MAX_WEAPON_TIER && Math.random() < 0.38
+    ? 'arsenal'
+    : utilityTypes[Math.floor(Math.random() * utilityTypes.length)];
   state.powerups.push(new PowerUp(x, y, type));
   showNotice(`${POWERUP_TYPES[type].name} SAHADA`, 0.8);
   tone(760, 0.06, 'square', 0.022);
@@ -1020,7 +1055,17 @@ function spawnPowerup(x, y) {
 function applyPowerup(type) {
   const spec = POWERUP_TYPES[type];
 
-  if (type === 'armor') {
+  if (type === 'arsenal') {
+    if (state.weaponTier < MAX_WEAPON_TIER) {
+      state.weaponTier = upgradeWeaponTier(state.weaponTier);
+    } else {
+      state.score += 250;
+      showNotice('NAMLU MAKS · +250', 1.05);
+      tone(980, 0.06, 'square', 0.025);
+      syncUI();
+      return;
+    }
+  } else if (type === 'armor') {
     if (state.player) state.player.spawnShield = Math.max(state.player.spawnShield, 8);
   } else if (type === 'emp') {
     state.enemyFreeze = Math.max(state.enemyFreeze, 5);
@@ -1244,7 +1289,7 @@ function clearShot(x1, y1, x2, y2, axis) {
       x1 + (x2 - x1) * t,
       y1 + (y2 - y1) * t
     );
-    if (tile && (tile.type === 'brick' || tile.type === 'steel')) return false;
+    if (tile && (tile.type === 'brick' || tile.type === 'steel' || tile.type === 'breakableSteel')) return false;
   }
   return true;
 }
@@ -1304,7 +1349,7 @@ function findPathDirection(source, target, brickCost = 4) {
 
       let cost = 1;
       if (tile.type === 'brick') cost = brickCost;
-      else if (tile.type === 'steel' || tile.type === 'water') continue;
+      else if (tile.type === 'steel' || tile.type === 'breakableSteel' || tile.type === 'water') continue;
       else if (tile.type === 'brush') cost = 1.08;
       else if (tile.type === 'ice') cost = 1.04;
 
@@ -1431,8 +1476,9 @@ function drawTerrain() {
           ctx.lineTo(px + 38, py + 40);
           ctx.stroke();
         }
-      } else if (tile.type === 'steel') {
-        ctx.fillStyle = COLORS.steel;
+      } else if (tile.type === 'steel' || tile.type === 'breakableSteel') {
+        const breakable = tile.type === 'breakableSteel';
+        ctx.fillStyle = breakable ? COLORS.breakableSteel : COLORS.steel;
         ctx.fillRect(px + 4, py + 4, TILE - 8, TILE - 8);
         ctx.strokeStyle = COLORS.steelLight;
         ctx.lineWidth = 2;
@@ -1443,6 +1489,32 @@ function drawTerrain() {
           ctx.arc(px + ox, py + oy, 2.2, 0, Math.PI * 2);
           ctx.fill();
         });
+
+        if (breakable) {
+          ctx.strokeStyle = COLORS.breakableSteelWeak;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(px + 10, py + 12);
+          ctx.lineTo(px + 22, py + 24);
+          ctx.lineTo(px + 16, py + 36);
+          ctx.moveTo(px + 37, py + 10);
+          ctx.lineTo(px + 27, py + 22);
+          ctx.lineTo(px + 36, py + 36);
+          ctx.stroke();
+
+          if (tile.hp < 3) {
+            ctx.strokeStyle = '#2d3540';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(px + 7, py + 39);
+            ctx.lineTo(px + 40, py + 8);
+            if (tile.hp === 1) {
+              ctx.moveTo(px + 8, py + 8);
+              ctx.lineTo(px + 39, py + 39);
+            }
+            ctx.stroke();
+          }
+        }
       } else if (tile.type === 'ice') {
         ctx.fillStyle = COLORS.ice;
         ctx.globalAlpha = 0.82;
@@ -1562,6 +1634,7 @@ function syncUI() {
   UI.wave.textContent = `${state.waveInStage}/${WAVES_PER_STAGE}`;
   UI.lives.textContent = state.lives;
   UI.baseHp.textContent = state.base?.hp ?? MAX_BASE_HP;
+  if (UI.weaponTier) UI.weaponTier.textContent = weaponProfile(state.weaponTier).label;
   if (UI.remaining) {
     const active = state.enemies.filter(enemy => !enemy.dead).length;
     UI.remaining.textContent = active + state.pendingSpawns;
