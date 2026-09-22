@@ -2388,6 +2388,16 @@ if (window.location.hostname === '127.0.0.1') {
       return { moved, aligned: true, snapshot: testSnapshot() };
     },
 
+    setP1Momentum(dir) {
+      if (state.player) state.player.momentumDir = dir;
+      return testSnapshot();
+    },
+
+    stepP1(dt = 0.1) {
+      state.player?.update(dt);
+      return testSnapshot();
+    },
+
     canP1Move(dir, distance = 8) {
       return Boolean(state.player?.canMove(dir, distance));
     },
