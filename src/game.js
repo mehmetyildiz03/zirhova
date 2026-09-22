@@ -1054,10 +1054,12 @@ function spawnPowerup(x, y) {
 
 function applyPowerup(type) {
   const spec = POWERUP_TYPES[type];
+  let notice = spec.name;
 
   if (type === 'arsenal') {
     if (state.weaponTier < MAX_WEAPON_TIER) {
       state.weaponTier = upgradeWeaponTier(state.weaponTier);
+      notice = `NAMLU ${weaponProfile(state.weaponTier).label}`;
     } else {
       state.score += 250;
       showNotice('NAMLU MAKS · +250', 1.05);
@@ -1084,7 +1086,7 @@ function applyPowerup(type) {
     state.lives = Math.min(6, state.lives + 1);
   }
 
-  showNotice(spec.name, 1.05);
+  showNotice(notice, 1.05);
   tone(920, 0.07, 'square', 0.03);
   haptic(14);
   syncUI();
