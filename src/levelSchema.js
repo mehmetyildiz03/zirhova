@@ -18,6 +18,23 @@ export function isCoord(value) {
   );
 }
 
+function terrainAt(level, x, y) {
+  for (const key of TERRAIN_KEYS) {
+    if ((level[key] || []).some(([tx, ty]) => tx === x && ty === y)) return key;
+  }
+  return null;
+}
+
+function inBounds(x, y) {
+  return x >= 0 && y >= 0 && x < LEVEL_SIZE && y < LEVEL_SIZE;
+}
+
+function immediateNeighbors([x, y]) {
+  return [[1,0],[-1,0],[0,1],[0,-1]]
+    .map(([dx, dy]) => [x + dx, y + dy])
+    .filter(([nx, ny]) => inBounds(nx, ny));
+}
+
 function uniqueCoords(list = []) {
   const seen = new Set();
   const out = [];
@@ -86,6 +103,41 @@ export function validateCustomLevel(input) {
 
   if (coordKey(level.playerSpawn) === coordKey(level.baseSpawn)) {
     errors.push('Oyuncu başlangıcı üs ile aynı karede olamaz.');
+  }
+
+  const playerExitCount = immediateNeighbors(level.playerSpawn)
+    .filter(coord => coordKey(coord) !== coordKey(level.baseSpawn))
+    .filter(([x, y]) => {
+      const terrain = terrainAt(level, x, y);
+      return !terrain || terrain === 'brush' || terrain === 'ice';
+    }).length;
+
+  if (playerExitCount < 2) {
+    errors.push('Oyuncu başlangıcında en az 2 doğrudan sürüş çıkışı gerekli.');
+  }
+
+  for (const spawn of level.enemySpawns) {
+    const permanentExitCount = immediateNeighbors(spawn)
+      .filter(coord => coordKey(coord) !== coordKey(level.baseSpawn))
+      .filter(coord => coordKey(coord) !== coordKey(level.playerSpawn))
+      .filter(([x, y]) => {
+        const terrain = terrainAt(level, x, y);
+        return !['steel', 'breakableSteel', 'water'].includes(terrain);
+      }).length;
+
+    if (permanentExitCount < 1) {
+      errors.push(`Düşman başlangıcı ${spawn[0]},${spawn[1]} kalıcı engellerle tamamen kapalı.`);
+    }
+
+    const belowY = spawn[1] + 1;
+    if (belowY < LEVEL_SIZE) {
+      const belowTerrain = terrainAt(level, spawn[0], belowY);
+      if (belowTerrain && !['brush', 'ice'].includes(belowTerrain)) {
+        errors.push(
+          `Düşman başlangıcı ${spawn[0]},${spawn[1]} altındaki kare spawn koridoru için boş bırakılmalı.`
+        );
+      }
+    }
   }
 
   return {
