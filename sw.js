@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.7-editor';
+const CACHE = 'zirhova-v0.8-coop';
 const ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const ASSETS = [
   './src/weaponSystem.js',
   './src/brickSystem.js',
   './src/levelSchema.js',
+  './src/controllerSystem.js',
   './src/editor.js',
   './editor.css',
   './editor.html',
