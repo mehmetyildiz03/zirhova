@@ -1304,6 +1304,51 @@ function damageBase() {
   if (state.base.hp <= 0) endGame('Üs çekirdeği yok edildi');
 }
 
+function respawnPlayer(slot) {
+  const spawnCell = slot === 2
+    ? (state.player2Spawn || findSecondarySpawnCell(state.grid, currentLevel().playerSpawn, currentLevel().baseSpawn))
+    : currentLevel().playerSpawn;
+
+  const candidates = [
+    spawnCell,
+    [spawnCell[0] + 1, spawnCell[1]],
+    [spawnCell[0] - 1, spawnCell[1]],
+    [spawnCell[0], spawnCell[1] - 1],
+    [spawnCell[0], spawnCell[1] + 1],
+  ];
+
+  for (const cell of candidates) {
+    const [x, y] = cell;
+    if (x < 0 || y < 0 || x >= COLS || y >= ROWS) continue;
+
+    const pos = gridEntityPosition(cell, TANK_SIZE);
+    const candidate = new Tank(pos.x, pos.y, 'player', 'raider', slot);
+    if (canOccupy(candidate, candidate.x, candidate.y)) return candidate;
+  }
+
+  const pos = gridEntityPosition(spawnCell, TANK_SIZE);
+  return new Tank(pos.x, pos.y, 'player', 'raider', slot);
+}
+
+function handlePlayerDeath(slot) {
+  const key = slot === 2 ? 'player2' : 'player';
+  const player = state[key];
+  if (!player?.dead) return;
+
+  const color = slot === 2 ? COLORS.player2 : COLORS.player;
+  burst(player.cx, player.cy, color, 22);
+  addShake(8);
+  state.lives = Math.max(0, state.lives - 1);
+
+  state[key] = null;
+
+  if (state.lives > 0) {
+    state[key] = respawnPlayer(slot);
+  }
+
+  syncUI();
+}
+
 function handleDeaths() {
   for (const enemy of state.enemies) {
     if (!enemy.dead || enemy.counted) continue;
@@ -1317,18 +1362,11 @@ function handleDeaths() {
 
   state.enemies = state.enemies.filter(enemy => !enemy.dead);
 
-  if (state.player?.dead) {
-    burst(state.player.cx, state.player.cy, COLORS.player, 22);
-    addShake(8);
-    state.lives--;
-    syncUI();
+  handlePlayerDeath(1);
+  if (state.coop) handlePlayerDeath(2);
 
-    if (state.lives <= 0) {
-      endGame('Son tank da kaybedildi');
-    } else {
-      const pos = gridEntityPosition(currentLevel().playerSpawn, TANK_SIZE);
-      state.player = new Tank(pos.x, pos.y, 'player');
-    }
+  if (!activePlayers().length) {
+    endGame('Son tank da kaybedildi');
   }
 }
 
