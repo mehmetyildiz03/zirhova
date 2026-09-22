@@ -2480,6 +2480,10 @@ if (window.location.hostname === '127.0.0.1') {
       return Boolean(state.player?.canMove(dir, distance));
     },
 
+    blockingAheadP1(dir, distance = 24) {
+      return blockingTerrainAhead(state.player, dir, distance)?.type || null;
+    },
+
     addEnemy({ x, y, type = 'raider' }) {
       const enemy = new Tank(x, y, 'enemy', type);
       enemy.spawnShield = 0;
