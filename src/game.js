@@ -3,7 +3,7 @@ import { MAX_WEAPON_TIER, upgradeWeaponTier, weaponProfile, damageBreakableSteel
 import { BRICK_GRID, BRICK_FULL_MASK, brickContainsPoint, damageBrick, brickBlocksRect, brickHasCell, countBrickCells } from './brickSystem.js';
 import { validateCustomLevel } from './levelSchema.js';
 import { freshActions, mergeActions, readGamepadActions, pickDirection } from './controllerSystem.js';
-import { NAV_STEP, nearestNavStart, isNavAlignedStart, navStartCandidates } from './navigationSystem.js';
+import { NAV_STEP, isNavAlignedStart, navStartCandidates } from './navigationSystem.js';
 
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
