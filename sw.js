@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.10-boss';
+const CACHE = 'zirhova-v0.11-audio-polish';
 const ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const ASSETS = [
   './src/navigationSystem.js',
   './src/balanceSystem.js',
   './src/bossSystem.js',
+  './src/audioSystem.js',
   './src/editor.js',
   './editor.css',
   './editor.html',
