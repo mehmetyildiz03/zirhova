@@ -2569,10 +2569,22 @@ syncUI();
 if (window.location.hostname === '127.0.0.1') {
   const testSnapshot = () => ({
     coop: state.coop,
+    running: state.running,
+    gameOver: state.gameOver,
+    awaitingUpgrade: state.awaitingUpgrade,
+    stage: state.stage,
+    wave: state.wave,
+    waveInStage: state.waveInStage,
     lives: state.lives,
+    baseHp: state.base?.hp ?? null,
+    score: state.score,
     activePlayers: activePlayers().length,
     pendingRespawns: [...state.pendingRespawns],
     pendingSpawns: state.pendingSpawns,
+    waveQueue: state.waveSpawnQueue.length,
+    bulletCount: state.bullets.length,
+    powerupCount: state.powerups.length,
+    particleCount: state.particles.length,
     enemyRects: state.enemies
       .filter(enemy => !enemy.dead)
       .map(enemy => ({ x: enemy.x, y: enemy.y, w: enemy.w, h: enemy.h })),
@@ -2790,6 +2802,59 @@ if (window.location.hostname === '127.0.0.1') {
 
     retryRespawns(seconds = 0.2) {
       updatePendingRespawns(seconds);
+      return testSnapshot();
+    },
+
+    clearCurrentWave() {
+      let guard = 0;
+
+      while ((state.waveSpawnQueue.length || state.enemies.length) && guard < 80) {
+        guard++;
+
+        if (state.waveSpawnQueue.length) {
+          state.spawnClock = 0;
+          updateSpawnQueue(1);
+        }
+
+        for (const enemy of state.enemies) enemy.dead = true;
+        handleDeaths();
+      }
+
+      updatePowerups(POWERUP_LIFETIME + 1);
+      updateParticles(2);
+      state.bullets = [];
+      syncUI();
+
+      return {
+        guard,
+        snapshot: testSnapshot(),
+      };
+    },
+
+    advanceLifecycle(seconds = 3.2) {
+      advanceWaveIfNeeded(seconds);
+      return testSnapshot();
+    },
+
+    chooseLifecycleUpgrade() {
+      if (!state.awaitingUpgrade) return testSnapshot();
+
+      const upgrade = UPGRADES.find(candidate => {
+        if (candidate.available && !candidate.available()) return false;
+        if (candidate.repeatable) return true;
+        return (state.upgradeLevels[candidate.id] || 0) < candidate.max;
+      });
+
+      if (!upgrade) throw new Error('No upgrade available during lifecycle test');
+      chooseUpgrade(upgrade);
+      return testSnapshot();
+    },
+
+    ageTransientState(seconds = 5) {
+      for (const bullet of state.bullets) bullet.update(seconds);
+      state.bullets = state.bullets.filter(bullet => !bullet.dead);
+      updatePowerups(seconds);
+      updateParticles(seconds);
       return testSnapshot();
     },
   };
