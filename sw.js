@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.8.6-spawn-safety';
+const CACHE = 'zirhova-v0.8.7-ai-traffic';
 const ASSETS = [
   './',
   './index.html',
