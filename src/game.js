@@ -997,6 +997,7 @@ function resetGame(coopMode = state.coop) {
     player2Spawn: null,
   });
 
+  document.body.dataset.playMode = coop ? 'coop' : 'solo';
   loadStage({ preserveBaseHp: false, announce: true });
   UI.gameOver.classList.remove('show');
   UI.upgrade.classList.remove('show');
@@ -1855,6 +1856,9 @@ function draw() {
 }
 
 function syncUI() {
+  document.body.dataset.activePlayers = String(activePlayers().length);
+  document.body.dataset.playMode = state.coop ? 'coop' : 'solo';
+
   UI.score.textContent = state.score;
   if (UI.stage) UI.stage.textContent = state.stage;
   UI.wave.textContent = `${state.waveInStage}/${WAVES_PER_STAGE}`;
@@ -2141,15 +2145,19 @@ if ('serviceWorker' in navigator) {
 
 const customPreview = readCustomLevel();
 document.body.dataset.gameMode = customPreview ? 'custom' : 'campaign';
+document.body.dataset.playMode = 'solo';
+
 if (CUSTOM_MODE) {
   const startButton = document.querySelector('#startBtn');
   if (customPreview) {
-    startButton.textContent = 'ÖZEL HARİTAYI BAŞLAT';
+    startButton.textContent = '1 OYUNCU · ÖZEL';
+    if (UI.coopBtn) UI.coopBtn.textContent = '2 OYUNCU · ÖZEL';
   } else {
-    startButton.textContent = 'NORMAL OYUNA BAŞLA';
+    startButton.textContent = '1 OYUNCU';
     showInstallHint('Kayıtlı geçerli özel harita bulunamadı; normal kampanya açılacak.');
   }
 }
 
+pollGamepads();
 state.grid = buildMap(currentLevel());
 syncUI();
