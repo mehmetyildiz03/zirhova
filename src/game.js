@@ -2660,6 +2660,11 @@ if (window.location.hostname === '127.0.0.1') {
       return testSnapshot();
     },
 
+    clearP1() {
+      state.player = null;
+      return testSnapshot();
+    },
+
     setBase({ x, y }) {
       state.base = new Base(x, y, MAX_BASE_HP);
       return testSnapshot();
