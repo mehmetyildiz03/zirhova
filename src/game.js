@@ -345,7 +345,7 @@ class Tank extends RectEntity {
       if (this.alignForTurn(nextDir)) this.dir = nextDir;
     }
 
-    const ahead = tileAhead(this, this.dir, 25);
+    const ahead = blockingTerrainAhead(this, this.dir, 25);
     if (ahead?.type === 'brick' && this.fireCooldown <= 0) {
       this.shoot();
       return;
@@ -372,7 +372,7 @@ class Tank extends RectEntity {
   chooseDirection(target, avoidDir = null) {
     const pathDir = findPathDirection(this, target, this.spec.brickCost);
     if (pathDir && pathDir !== avoidDir) {
-      const ahead = tileAhead(this, pathDir, 24);
+      const ahead = blockingTerrainAhead(this, pathDir, 24);
       if (ahead?.type === 'brick' || this.canMove(pathDir, 9)) return pathDir;
     }
 
@@ -388,7 +388,7 @@ class Tank extends RectEntity {
       .filter((name, index, arr) => arr.indexOf(name) === index && name !== avoidDir);
 
     for (const name of candidates) {
-      const ahead = tileAhead(this, name, 24);
+      const ahead = blockingTerrainAhead(this, name, 24);
       if (ahead?.type === 'brick' || this.canMove(name, 9)) return name;
     }
     return preferred[0];
@@ -1598,9 +1598,24 @@ function canShiftEntity(entity, targetX, targetY, { ignoreTanks = false } = {}) 
   return true;
 }
 
-function tileAhead(entity, dir, distance = 24) {
+function blockingTerrainAhead(entity, dir, distance = 24) {
   const d = DIRS[dir];
-  return tileAt(entity.cx + d.x * distance, entity.cy + d.y * distance);
+  const sampleX = entity.cx + d.x * distance;
+  const sampleY = entity.cy + d.y * distance;
+  const tile = tileAt(sampleX, sampleY);
+  if (!tile) return null;
+
+  if (tile.type === 'brick') {
+    const localX = ((sampleX % TILE) + TILE) % TILE;
+    const localY = ((sampleY % TILE) + TILE) % TILE;
+    return brickContainsPoint(tile.mask, localX, localY, TILE) ? tile : null;
+  }
+
+  if (tile.type === 'steel' || tile.type === 'breakableSteel' || tile.type === 'water') {
+    return tile;
+  }
+
+  return null;
 }
 
 function lineOfSightDirection(source, target) {
