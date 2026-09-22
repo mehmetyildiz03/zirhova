@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.8.8-long-run';
+const CACHE = 'zirhova-v0.8.9-performance-stress';
 const ASSETS = [
   './',
   './index.html',
