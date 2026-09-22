@@ -689,6 +689,7 @@ class Tank extends RectEntity {
     addShake(playerShot ? 1.1 : 0.45);
     audio.cannon({
       player: playerShot,
+      slot: this.playerSlot || 0,
       strong: playerShot ? (damage > 1 || state.weaponTier >= 2) : Boolean(this.spec?.strongShot),
       tier: playerShot ? state.weaponTier : 1,
       boss: Boolean(this.spec?.boss),
