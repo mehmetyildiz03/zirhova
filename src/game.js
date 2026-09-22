@@ -690,11 +690,15 @@ class Bullet extends RectEntity {
           }
         }
       } else {
-        if (state.player && !state.player.dead && hit(this, state.player)) {
-          state.player.hit(1);
-          this.dead = true;
-          break;
+        for (const player of activePlayers()) {
+          if (hit(this, player)) {
+            player.hit(1);
+            this.dead = true;
+            break;
+          }
         }
+        if (this.dead) break;
+
         if (state.base && hit(this, state.base)) {
           this.dead = true;
           damageBase();
@@ -1216,7 +1220,9 @@ function applyPowerup(type) {
       return;
     }
   } else if (type === 'armor') {
-    if (state.player) state.player.spawnShield = Math.max(state.player.spawnShield, 8);
+    for (const player of activePlayers()) {
+      player.spawnShield = Math.max(player.spawnShield, 8);
+    }
   } else if (type === 'emp') {
     state.enemyFreeze = Math.max(state.enemyFreeze, 5);
   } else if (type === 'artillery') {
@@ -1245,9 +1251,13 @@ function updatePowerups(dt) {
 
   for (const powerup of state.powerups) {
     powerup.update(dt);
-    if (!powerup.dead && state.player && !state.player.dead && hit(powerup, state.player)) {
+    if (powerup.dead) continue;
+
+    for (const player of activePlayers()) {
+      if (!hit(powerup, player)) continue;
       powerup.dead = true;
       applyPowerup(powerup.type);
+      break;
     }
   }
 
@@ -1406,7 +1416,7 @@ function canOccupy(entity, x, y, { ignoreTanks = false } = {}) {
   }
 
   if (!ignoreTanks) {
-    const tanks = [state.player, ...state.enemies];
+    const tanks = [state.player, state.player2, ...state.enemies];
     for (const other of tanks) {
       if (!other || other === entity || other.dead) continue;
       if (rectOverlap(x, y, entity.w, entity.h, other, 2)) return false;
@@ -1593,6 +1603,7 @@ function showNotice(text, seconds = 1) {
 }
 
 function update(dt) {
+  pollGamepads();
   if (!state.running || state.paused || state.awaitingUpgrade) return;
 
   state.noticeTimer = Math.max(0, state.noticeTimer - dt);
@@ -1603,6 +1614,7 @@ function update(dt) {
   updateSpawnQueue(dt);
   state.base?.update(dt);
   state.player?.update(dt);
+  state.player2?.update(dt);
   for (const enemy of state.enemies) enemy.update(dt);
   for (const bullet of state.bullets) bullet.update(dt);
   resolveBulletCollisions();
@@ -1796,6 +1808,7 @@ function draw() {
   for (const bullet of state.bullets) bullet.draw();
   for (const enemy of state.enemies) enemy.draw();
   state.player?.draw();
+  state.player2?.draw();
   drawParticles();
   drawBrushOverlay();
 
