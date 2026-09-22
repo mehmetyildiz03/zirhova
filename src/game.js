@@ -2,6 +2,7 @@ import { LEVELS } from './levels.js';
 import { MAX_WEAPON_TIER, upgradeWeaponTier, weaponProfile, damageBreakableSteel } from './weaponSystem.js';
 import { BRICK_GRID, BRICK_FULL_MASK, brickContainsPoint, damageBrick, brickBlocksRect, brickHasCell, countBrickCells } from './brickSystem.js';
 import { validateCustomLevel } from './levelSchema.js';
+import { freshActions, mergeActions, readGamepadActions, pickDirection } from './controllerSystem.js';
 
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
@@ -26,6 +27,8 @@ const UI = {
   pause: document.querySelector('#pauseOverlay'),
   pauseBtn: document.querySelector('#pauseBtn'),
   resumeBtn: document.querySelector('#resumeBtn'),
+  coopBtn: document.querySelector('#coopBtn'),
+  controllerStatus: document.querySelector('#controllerStatus'),
 };
 
 const TILE = 48;
@@ -62,6 +65,8 @@ const COLORS = {
   brushLight: '#397255',
   player: '#e8d35b',
   playerDark: '#8c7d2d',
+  player2: '#68c9e8',
+  player2Dark: '#2f6f86',
   bullet: '#fff4be',
   base: '#75c7a0',
   baseCore: '#e2fff1',
@@ -141,13 +146,26 @@ const DIRS = {
 
 const DIR_NAMES = Object.keys(DIRS);
 const MOVE_ACTIONS = ['up', 'down', 'left', 'right'];
-const input = { up: false, down: false, left: false, right: false, fire: false };
-const keyMap = new Map([
-  ['ArrowUp', 'up'], ['KeyW', 'up'],
-  ['ArrowDown', 'down'], ['KeyS', 'down'],
-  ['ArrowLeft', 'left'], ['KeyA', 'left'],
-  ['ArrowRight', 'right'], ['KeyD', 'right'],
-  ['Space', 'fire'], ['Enter', 'fire'],
+const touchInput = freshActions();
+const keyInput1 = freshActions();
+const keyInput2 = freshActions();
+let padInput1 = freshActions();
+let padInput2 = freshActions();
+
+const p1KeyMap = new Map([
+  ['KeyW', 'up'],
+  ['KeyS', 'down'],
+  ['KeyA', 'left'],
+  ['KeyD', 'right'],
+  ['Space', 'fire'],
+]);
+
+const p2KeyMap = new Map([
+  ['ArrowUp', 'up'],
+  ['ArrowDown', 'down'],
+  ['ArrowLeft', 'left'],
+  ['ArrowRight', 'right'],
+  ['Enter', 'fire'],
 ]);
 
 function defaultModifiers() {
@@ -252,9 +270,10 @@ class RectEntity {
 }
 
 class Tank extends RectEntity {
-  constructor(x, y, team, type = 'raider') {
+  constructor(x, y, team, type = 'raider', playerSlot = 1) {
     super(x, y, TANK_SIZE, TANK_SIZE);
     this.team = team;
+    this.playerSlot = team === 'player' ? playerSlot : 0;
     this.type = type;
     this.spec = team === 'player' ? null : ENEMY_TYPES[type];
     this.dir = team === 'player' ? 'up' : 'down';
@@ -286,12 +305,8 @@ class Tank extends RectEntity {
   }
 
   updatePlayer(dt) {
-    let dir = null;
-    if (input.up) dir = 'up';
-    else if (input.down) dir = 'down';
-    else if (input.left) dir = 'left';
-    else if (input.right) dir = 'right';
-
+    const actions = getPlayerActions(this.playerSlot);
+    const dir = pickDirection(actions);
     const onIce = tileAt(this.cx, this.cy)?.type === 'ice';
 
     if (dir) {
@@ -305,12 +320,12 @@ class Tank extends RectEntity {
       this.move(d.x * this.speed * 0.72 * dt, d.y * this.speed * 0.72 * dt);
     }
 
-    if (input.fire) this.shoot();
+    if (actions.fire) this.shoot();
   }
 
   updateAI(dt) {
-    const target = this.spec.target === 'player' && state.player && !state.player.dead
-      ? state.player
+    const target = this.spec.target === 'player'
+      ? (nearestLivePlayer(this) || state.base)
       : state.base;
 
     const shotDir = lineOfSightDirection(this, target);
@@ -473,8 +488,12 @@ class Tank extends RectEntity {
   }
 
   draw() {
-    const color = this.team === 'player' ? COLORS.player : this.spec.color;
-    const dark = this.team === 'player' ? COLORS.playerDark : this.spec.dark;
+    const color = this.team === 'player'
+      ? (this.playerSlot === 2 ? COLORS.player2 : COLORS.player)
+      : this.spec.color;
+    const dark = this.team === 'player'
+      ? (this.playerSlot === 2 ? COLORS.player2Dark : COLORS.playerDark)
+      : this.spec.dark;
 
     ctx.save();
     ctx.translate(this.cx, this.cy);
@@ -575,7 +594,9 @@ class Tank extends RectEntity {
     const y = this.y - 7;
     ctx.fillStyle = 'rgba(0,0,0,.55)';
     ctx.fillRect(x, y, width, 4);
-    ctx.fillStyle = this.team === 'player' ? '#e8d35b' : '#f1f4f6';
+    ctx.fillStyle = this.team === 'player'
+      ? (this.playerSlot === 2 ? COLORS.player2 : COLORS.player)
+      : '#f1f4f6';
     ctx.fillRect(x, y, width * clamp(this.hp / this.maxHp, 0, 1), 4);
   }
 }
@@ -824,6 +845,9 @@ const state = {
   waveSpawnQueue: [],
   spawnClock: 0,
   customLevel: null,
+  coop: false,
+  player2: null,
+  player2Spawn: null,
 };
 
 function currentLevel() {
