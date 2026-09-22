@@ -2871,6 +2871,13 @@ if (window.location.hostname === '127.0.0.1') {
       return testSnapshot();
     },
 
+    stepEnemyUpdates(dt = 0.05) {
+      for (const enemy of state.enemies) {
+        if (!enemy.dead) enemy.update(dt);
+      }
+      return testSnapshot();
+    },
+
     pathDirForEnemy(index, target) {
       const enemy = state.enemies[index];
       if (!enemy) return null;
