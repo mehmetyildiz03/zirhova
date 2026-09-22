@@ -686,3 +686,12 @@ canvas {
     width: clamp(102px, 28vh, 126px);
   }
 }
+
+.editor-link {
+  color: #cbd7e2;
+  text-decoration: none;
+  border-bottom: 1px solid #415368;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+.editor-link:hover { color: #f1dc72; }
