@@ -183,7 +183,28 @@ assert(
   respawned
 );
 
-// 8) If every configured enemy spawn lane is blocked, fallback spawning must
+// 8) AI blocker sensing must respect actual carved brick cells.
+// With the lane open, AI should not treat the whole tile as a solid brick.
+await testCall('sandbox');
+const oneSideBrickMask = [0,4,8,12].reduce((mask, bit) => mask | (1 << bit), 0);
+await testCall('setTile', 5, 5, 'brick', oneSideBrickMask);
+await testCall('setP1', { x: 5 * 48 + 13, y: 5 * 48 - 31, dir: 'down' });
+const carvedAhead = await testCall('blockingAheadP1', 'down', 40);
+assert(
+  carvedAhead === null,
+  'AI blocker sensing still treated a carved brick opening as a full wall',
+  { carvedAhead }
+);
+
+await testCall('setP1', { x: 5 * 48 - 5, y: 5 * 48 - 31, dir: 'down' });
+const solidAhead = await testCall('blockingAheadP1', 'down', 40);
+assert(
+  solidAhead === 'brick',
+  'AI blocker sensing failed to detect a remaining brick column',
+  { solidAhead }
+);
+
+// 9) If every configured enemy spawn lane is blocked, fallback spawning must
 // eventually find a safe alternative instead of soft-locking the wave.
 await testCall('sandbox');
 for (const x of [0, 7, 15]) {
@@ -205,7 +226,7 @@ assert(
   fallbackSpawn
 );
 
-// 9) Normal wave spawning must never stack live enemy rectangles significantly.
+// 10) Normal wave spawning must never stack live enemy rectangles significantly.
 await page.reload({ waitUntil: 'networkidle' });
 await page.click('#startBtn');
 for (let sample = 0; sample < 24; sample++) {
@@ -240,6 +261,7 @@ console.log('PASS movement audit', {
   baseContactEscape: 'ok',
   iceExitMomentum: 'ok',
   blockedRespawnRetry: 'ok',
+  carvedBrickAiSensing: 'ok',
   spawnStarvationFallback: 'ok',
   enemySpawnOverlap: 'none',
 });
