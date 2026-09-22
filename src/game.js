@@ -1894,19 +1894,38 @@ function togglePause(force) {
   UI.pause.classList.toggle('show', state.paused);
 }
 
-function setAction(action, on) {
-  input[action] = on;
+function setTouchAction(action, on) {
+  touchInput[action] = on;
   document
     .querySelectorAll(`[data-action="${action}"]`)
     .forEach(button => button.classList.toggle('active', on));
 }
 
+function setKeyAction(target, action, on) {
+  if (!action) return;
+  target[action] = on;
+}
+
 function setMoveDirection(dir) {
-  for (const action of MOVE_ACTIONS) setAction(action, action === dir);
+  for (const action of MOVE_ACTIONS) {
+    setTouchAction(action, action === dir);
+  }
+}
+
+function clearActionObject(target) {
+  for (const action of Object.keys(target)) target[action] = false;
 }
 
 function clearAllInput() {
-  for (const action of Object.keys(input)) setAction(action, false);
+  clearActionObject(touchInput);
+  clearActionObject(keyInput1);
+  clearActionObject(keyInput2);
+  padInput1 = freshActions();
+  padInput2 = freshActions();
+
+  document.querySelectorAll('[data-action]').forEach(button => {
+    button.classList.remove('active');
+  });
   resetMovePadVisual();
 }
 
@@ -1917,22 +1936,28 @@ window.addEventListener('keydown', event => {
     return;
   }
 
-  const action = keyMap.get(event.code);
-  if (!action) return;
+  const p1Action = p1KeyMap.get(event.code);
+  const p2Action = p2KeyMap.get(event.code);
+  if (!p1Action && !p2Action) return;
+
   event.preventDefault();
-  setAction(action, true);
+  if (p1Action) setKeyAction(keyInput1, p1Action, true);
+  if (p2Action) setKeyAction(keyInput2, p2Action, true);
 });
 
 window.addEventListener('keyup', event => {
-  const action = keyMap.get(event.code);
-  if (!action) return;
+  const p1Action = p1KeyMap.get(event.code);
+  const p2Action = p2KeyMap.get(event.code);
+  if (!p1Action && !p2Action) return;
+
   event.preventDefault();
-  setAction(action, false);
+  if (p1Action) setKeyAction(keyInput1, p1Action, false);
+  if (p2Action) setKeyAction(keyInput2, p2Action, false);
 });
 
-window.addEventListener('blur', () => {
-  clearAllInput();
-});
+window.addEventListener('blur', clearAllInput);
+window.addEventListener('gamepadconnected', pollGamepads);
+window.addEventListener('gamepaddisconnected', pollGamepads);
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && state.running && !state.awaitingUpgrade && !state.gameOver) {
@@ -1944,11 +1969,11 @@ document.querySelectorAll('[data-action="fire"]').forEach(button => {
   const start = event => {
     event.preventDefault();
     button.setPointerCapture?.(event.pointerId);
-    setAction('fire', true);
+    setTouchAction('fire', true);
   };
   const end = event => {
     event.preventDefault();
-    setAction('fire', false);
+    setTouchAction('fire', false);
   };
 
   button.addEventListener('pointerdown', start);
@@ -2023,8 +2048,9 @@ if (directionPad) {
   directionPad.addEventListener('lostpointercapture', endDirection);
 }
 
-document.querySelector('#startBtn').addEventListener('click', resetGame);
-document.querySelector('#restartBtn').addEventListener('click', resetGame);
+document.querySelector('#startBtn').addEventListener('click', () => resetGame(false));
+UI.coopBtn?.addEventListener('click', () => resetGame(true));
+document.querySelector('#restartBtn').addEventListener('click', () => resetGame(state.coop));
 UI.pauseBtn?.addEventListener('click', () => togglePause());
 UI.resumeBtn?.addEventListener('click', () => togglePause(false));
 
