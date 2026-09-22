@@ -27,15 +27,24 @@ export function readGamepadActions(pad, threshold = 0.45) {
   const buttons = pad.buttons || [];
   const pressed = index => Boolean(buttons[index]?.pressed || (buttons[index]?.value ?? 0) > 0.55);
 
-  const x = Number(axes[0] || 0);
-  const y = Number(axes[1] || 0);
+  if (pressed(12)) actions.up = true;
+  else if (pressed(13)) actions.down = true;
+  else if (pressed(14)) actions.left = true;
+  else if (pressed(15)) actions.right = true;
+  else {
+    const x = Number(axes[0] || 0);
+    const y = Number(axes[1] || 0);
 
-  actions.left = x < -threshold || pressed(14);
-  actions.right = x > threshold || pressed(15);
-  actions.up = y < -threshold || pressed(12);
-  actions.down = y > threshold || pressed(13);
+    if (Math.max(Math.abs(x), Math.abs(y)) >= threshold) {
+      if (Math.abs(x) > Math.abs(y)) {
+        actions[x > 0 ? 'right' : 'left'] = true;
+      } else {
+        actions[y > 0 ? 'down' : 'up'] = true;
+      }
+    }
+  }
+
   actions.fire = pressed(0) || pressed(1) || pressed(2) || pressed(5);
-
   return actions;
 }
 
