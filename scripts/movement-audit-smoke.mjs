@@ -103,7 +103,47 @@ assert(
   { contact: contactAfter.p1, escaped: escapeMove.snapshot.p1 }
 );
 
-// 5) Fully blocked player respawn must wait instead of spawning inside terrain.
+// 5) Base collision must stop forward motion without locking an escape turn.
+await testCall('sandbox');
+await testCall('setBase', { x: 291, y: 387 });
+await testCall('setP1', { x: 247, y: 391, dir: 'right' });
+const baseBefore = await testCall('snapshot');
+const baseContact = await testCall('driveP1', 'right', 40);
+assert(
+  baseContact.snapshot.p1.x < baseBefore.p1.x + 20,
+  'Tank passed too far into the base collision box',
+  { before: baseBefore.p1, after: baseContact.snapshot.p1 }
+);
+const baseEscape = await testCall('driveP1', 'up', 40);
+assert(
+  baseEscape.snapshot.p1.y < baseContact.snapshot.p1.y - 30,
+  'Base-side collision incorrectly locked the perpendicular escape direction',
+  { contact: baseContact.snapshot.p1, escaped: baseEscape.snapshot.p1 }
+);
+
+// 6) Ice momentum must stop after the tank center leaves ice.
+await testCall('sandbox');
+await testCall('setTile', 5, 8, 'ice');
+await testCall('setP1', { x: 247, y: 391, dir: 'right' });
+await testCall('setP1Momentum', 'right');
+const iceStart = await testCall('snapshot');
+await testCall('stepP1', 0.1);
+await testCall('stepP1', 0.1);
+const stillIce = await testCall('stepP1', 0.1);
+assert(
+  stillIce.p1.x > iceStart.p1.x + 30,
+  'Tank did not preserve momentum while leaving ice',
+  { start: iceStart.p1, after: stillIce.p1 }
+);
+const afterIceX = stillIce.p1.x;
+const floorStep = await testCall('stepP1', 0.1);
+assert(
+  Math.abs(floorStep.p1.x - afterIceX) < 0.2,
+  'Tank kept sliding after its center reached normal floor',
+  { before: afterIceX, after: floorStep.p1.x }
+);
+
+// 7) Fully blocked player respawn must wait instead of spawning inside terrain.
 await page.reload({ waitUntil: 'networkidle' });
 await page.click('#startBtn');
 await page.waitForTimeout(180);
@@ -143,7 +183,7 @@ assert(
   respawned
 );
 
-// 6) Normal wave spawning must never stack live enemy rectangles significantly.
+// 8) Normal wave spawning must never stack live enemy rectangles significantly.
 await page.reload({ waitUntil: 'networkidle' });
 await page.click('#startBtn');
 for (let sample = 0; sample < 24; sample++) {
@@ -175,6 +215,8 @@ console.log('PASS movement audit', {
   partialBrick36px: 'passable',
   partialBrick24px: 'blocked',
   tankContactEscape: 'ok',
+  baseContactEscape: 'ok',
+  iceExitMomentum: 'ok',
   blockedRespawnRetry: 'ok',
   enemySpawnOverlap: 'none',
 });
