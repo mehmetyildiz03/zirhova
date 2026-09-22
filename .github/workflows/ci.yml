@@ -55,5 +55,6 @@ jobs:
           test -n "$CHROME_PATH"
           node scripts/responsive-smoke.mjs
           node scripts/gameplay-smoke.mjs
+          node scripts/mobile-touch-smoke.mjs
           node scripts/editor-smoke.mjs
           node scripts/coop-smoke.mjs
