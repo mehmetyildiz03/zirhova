@@ -71,4 +71,31 @@ assert(
   result.errors
 );
 
-console.log('Validated custom-map spawn safety rules.');
+const malformedPlayer = baseLevel();
+malformedPlayer.playerSpawn = [99, 99];
+result = validateCustomLevel(malformedPlayer);
+assert(
+  !result.ok && result.errors.some(error => error.includes('Oyuncu başlangıcı geçersiz')),
+  'Out-of-bounds player spawn must be rejected instead of normalized',
+  result.errors
+);
+
+const malformedTerrain = baseLevel();
+malformedTerrain.steel = [[2, 2], [-1, 4]];
+result = validateCustomLevel(malformedTerrain);
+assert(
+  !result.ok && result.errors.some(error => error.includes('harita sınırı dışında')),
+  'Out-of-bounds terrain must be rejected instead of silently dropped',
+  result.errors
+);
+
+const duplicateEnemy = baseLevel();
+duplicateEnemy.enemySpawns = [[0,0], [0,0], [7,0]];
+result = validateCustomLevel(duplicateEnemy);
+assert(
+  !result.ok && result.errors.some(error => error.includes('birden fazla kez')),
+  'Duplicate enemy spawns must be rejected',
+  result.errors
+);
+
+console.log('Validated custom-map spawn safety and malformed input rules.');
