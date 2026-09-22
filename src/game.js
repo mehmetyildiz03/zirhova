@@ -1687,19 +1687,35 @@ function drawTerrain() {
 
       if (tile.type === 'brick') {
         const cell = TILE / BRICK_GRID;
+
         for (let row = 0; row < BRICK_GRID; row++) {
-          for (let col = 0; col < BRICK_GRID; col++) {
-            if (!brickHasCell(tile.mask, col, row)) continue;
+          const by = py + row * cell;
+
+          for (let pair = 0; pair < 2; pair++) {
+            const col = pair * 2;
+            const leftAlive = brickHasCell(tile.mask, col, row);
+            const rightAlive = brickHasCell(tile.mask, col + 1, row);
+            if (!leftAlive && !rightAlive) continue;
 
             const bx = px + col * cell;
-            const by = py + row * cell;
-            ctx.fillStyle = COLORS.brick;
-            ctx.fillRect(bx + 1, by + 1, cell - 2, cell - 2);
 
-            ctx.fillStyle = COLORS.brickLight;
-            const stagger = row % 2 ? 2 : 0;
-            ctx.fillRect(bx + 2 + stagger, by + 3, Math.max(3, cell - 6 - stagger), 3);
-            ctx.fillRect(bx + 2, by + 8, Math.max(3, cell - 5), 2);
+            // Full pair reads as one large brick instead of two tiny squares.
+            if (leftAlive && rightAlive) {
+              ctx.fillStyle = COLORS.brick;
+              ctx.fillRect(bx + 1, by + 1, cell * 2 - 2, cell - 2);
+
+              ctx.fillStyle = COLORS.brickLight;
+              ctx.fillRect(bx + 4, by + 3, cell * 2 - 8, 3);
+              ctx.fillStyle = '#6f3f29';
+              ctx.fillRect(bx + cell - 1, by + 1, 2, cell - 2);
+            } else {
+              const aliveCol = leftAlive ? col : col + 1;
+              const partX = px + aliveCol * cell;
+              ctx.fillStyle = COLORS.brick;
+              ctx.fillRect(partX + 1, by + 1, cell - 2, cell - 2);
+              ctx.fillStyle = COLORS.brickLight;
+              ctx.fillRect(partX + 3, by + 3, Math.max(3, cell - 6), 3);
+            }
           }
         }
       } else if (tile.type === 'steel' || tile.type === 'breakableSteel') {
