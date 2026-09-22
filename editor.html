@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0c1117" />
+  <title>ZIRHOVA — Harita Editörü</title>
+  <link rel="stylesheet" href="./editor.css" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+</head>
+<body>
+  <main class="editor-shell">
+    <header class="editor-header">
+      <div>
+        <div class="kicker">ZIRHOVA CONSTRUCTION MODE</div>
+        <h1>HARİTA EDİTÖRÜ</h1>
+      </div>
+      <a class="back-link" href="./">OYUNA DÖN</a>
+    </header>
+
+    <section class="editor-toolbar" aria-label="Harita araçları">
+      <label class="name-field">
+        <span>HARİTA ADI</span>
+        <input id="levelName" maxlength="40" value="ÖZEL HARİTA" />
+      </label>
+
+      <div class="palette" id="palette">
+        <button data-tool="brick" class="selected">TUĞLA</button>
+        <button data-tool="steel">ÇELİK</button>
+        <button data-tool="breakableSteel">TAKTİK ÇELİK</button>
+        <button data-tool="water">SU</button>
+        <button data-tool="ice">BUZ</button>
+        <button data-tool="brush">ÇALI</button>
+        <button data-tool="player">OYUNCU</button>
+        <button data-tool="base">ÜS</button>
+        <button data-tool="enemy">DÜŞMAN</button>
+        <button data-tool="erase">SİL</button>
+      </div>
+    </section>
+
+    <section class="editor-main">
+      <div class="canvas-wrap">
+        <canvas id="editorCanvas" width="768" height="768" aria-label="16x16 ZIRHOVA harita düzenleme alanı"></canvas>
+      </div>
+
+      <aside class="editor-side">
+        <div class="status-card">
+          <strong id="statusTitle">HAZIR</strong>
+          <span id="statusText">Bir araç seçip harita üzerinde dokun veya sürükle.</span>
+        </div>
+
+        <div class="actions">
+          <button id="undoBtn">GERİ AL</button>
+          <button id="redoBtn">YİNELE</button>
+          <button id="saveBtn" class="primary">KAYDET</button>
+          <button id="playBtn" class="primary">OYUNDA DENE</button>
+          <button id="resetBtn" class="danger">TEMİZLE</button>
+        </div>
+
+        <details class="transfer">
+          <summary>JSON İÇE / DIŞA AKTAR</summary>
+          <textarea id="jsonBox" spellcheck="false" placeholder="Harita JSON verisi burada görünür."></textarea>
+          <div class="transfer-actions">
+            <button id="exportBtn">JSON OLUŞTUR</button>
+            <button id="copyBtn">KOPYALA</button>
+            <button id="importBtn">İÇE AKTAR</button>
+          </div>
+        </details>
+
+        <div class="legend">
+          <p><b>Oyuncu</b> ve <b>Üs</b> tek noktadır; yeni yere dokununca taşınır.</p>
+          <p><b>Düşman</b> başlangıcı 2–4 adet olmalıdır; aynı noktaya tekrar dokununca kaldırılır.</p>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script type="module" src="./src/editor.js"></script>
+</body>
+</html>
