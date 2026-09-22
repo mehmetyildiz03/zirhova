@@ -5,6 +5,7 @@ import {
   nearestNavStart,
   isNavAlignedStart,
   navLaneIndexFromStart,
+  navStartCandidates,
 } from '../src/navigationSystem.js';
 
 function assert(condition, message) {
@@ -60,4 +61,17 @@ assert(
   'Nearest center for small drift should return the stable firing center'
 );
 
-console.log('Validated 16px tank navigation sub-grid.');
+// At the exact half-step, both adjacent lanes must be available to turn-assist.
+// If the geometrically preferred one is blocked, gameplay can choose the other.
+const midpointCandidates = navStartCandidates(272, TANK, WORLD, 2, 2);
+assert(midpointCandidates.length >= 2, 'Turn assist needs nearby lane alternatives');
+assert(
+  midpointCandidates[0].distance === 8 && midpointCandidates[1].distance === 8,
+  'Half-step position must expose both equally-close navigation lanes'
+);
+assert(
+  Math.abs(midpointCandidates[0].start - midpointCandidates[1].start) === NAV_STEP,
+  'Alternative turn lanes must be one navigation step apart'
+);
+
+console.log('Validated 16px tank navigation sub-grid and turn-assist candidates.');
