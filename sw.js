@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.5.1-weapon';
+const CACHE = 'zirhova-v0.6-bricks';
 const ASSETS = [
   './',
   './index.html',
@@ -6,6 +6,7 @@ const ASSETS = [
   './src/game.js',
   './src/levels.js',
   './src/weaponSystem.js',
+  './src/brickSystem.js',
   './manifest.webmanifest',
   './icons/apple-touch-icon.png',
   './icons/icon-192.png',
