@@ -35,6 +35,33 @@ function immediateNeighbors([x, y]) {
     .filter(([nx, ny]) => inBounds(nx, ny));
 }
 
+function conceptuallyBlocked(level, x, y) {
+  const terrain = terrainAt(level, x, y);
+  return terrain === 'steel' || terrain === 'breakableSteel' || terrain === 'water';
+}
+
+function hasConceptualRoute(level, start, goals) {
+  const goalKeys = new Set(goals.map(coordKey));
+  const queue = [start];
+  const seen = new Set([coordKey(start)]);
+
+  while (queue.length) {
+    const current = queue.shift();
+    const currentKey = coordKey(current);
+    if (goalKeys.has(currentKey)) return true;
+
+    for (const next of immediateNeighbors(current)) {
+      const key = coordKey(next);
+      if (seen.has(key)) continue;
+      if (conceptuallyBlocked(level, next[0], next[1])) continue;
+      seen.add(key);
+      queue.push(next);
+    }
+  }
+
+  return false;
+}
+
 function uniqueCoords(list = []) {
   const seen = new Set();
   const out = [];
@@ -120,10 +147,7 @@ export function validateCustomLevel(input) {
     const permanentExitCount = immediateNeighbors(spawn)
       .filter(coord => coordKey(coord) !== coordKey(level.baseSpawn))
       .filter(coord => coordKey(coord) !== coordKey(level.playerSpawn))
-      .filter(([x, y]) => {
-        const terrain = terrainAt(level, x, y);
-        return !['steel', 'breakableSteel', 'water'].includes(terrain);
-      }).length;
+      .filter(([x, y]) => !conceptuallyBlocked(level, x, y)).length;
 
     if (permanentExitCount < 1) {
       errors.push(`Düşman başlangıcı ${spawn[0]},${spawn[1]} kalıcı engellerle tamamen kapalı.`);
@@ -132,11 +156,17 @@ export function validateCustomLevel(input) {
     const belowY = spawn[1] + 1;
     if (belowY < LEVEL_SIZE) {
       const belowTerrain = terrainAt(level, spawn[0], belowY);
-      if (belowTerrain && !['brush', 'ice'].includes(belowTerrain)) {
+      if (belowTerrain) {
         errors.push(
-          `Düşman başlangıcı ${spawn[0]},${spawn[1]} altındaki kare spawn koridoru için boş bırakılmalı.`
+          `Düşman başlangıcı ${spawn[0]},${spawn[1]} altındaki kare spawn koridoru için tamamen boş bırakılmalı.`
         );
       }
+    }
+
+    if (!hasConceptualRoute(level, spawn, [level.playerSpawn, level.baseSpawn])) {
+      errors.push(
+        `Düşman başlangıcı ${spawn[0]},${spawn[1]} oyuncuya veya üsse ulaşan bir rota içermiyor.`
+      );
     }
   }
 
