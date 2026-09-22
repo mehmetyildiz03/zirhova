@@ -25,6 +25,8 @@ jobs:
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest ok')"
       - name: Validate level data
         run: node scripts/validate-levels.mjs
+      - name: Validate custom spawn safety
+        run: node scripts/validate-custom-spawns.mjs
       - name: Validate combat mechanics
         run: node scripts/validate-combat.mjs
       - name: Validate micro-brick physics
