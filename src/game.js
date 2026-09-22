@@ -2716,7 +2716,13 @@ if (window.location.hostname === '127.0.0.1') {
         trafficYieldDir: enemy.trafficYieldDir,
         trafficYieldCount: enemy.trafficYieldCount,
         turnCount: enemy.turnCount,
+        hp: enemy.hp,
+        maxHp: enemy.maxHp,
+        boss: Boolean(enemy.spec?.boss),
+        bossPhase: enemy.bossPhase,
+        armorFlash: enemy.armorFlash,
       })),
+    queuedEnemyTypes: state.waveSpawnQueue.map(entry => entry.type),
     p1: state.player ? {
       x: state.player.x,
       y: state.player.y,
@@ -2877,6 +2883,29 @@ if (window.location.hostname === '127.0.0.1') {
         get cy() { return this.y + this.h / 2; },
       };
       return findPathDirection(enemy, targetEntity, enemy.spec.brickCost);
+    },
+
+    setLifecycle({ stage, wave, waveInStage }) {
+      if (stage !== undefined) state.stage = stage;
+      if (wave !== undefined) state.wave = wave;
+      if (waveInStage !== undefined) state.waveInStage = waveInStage;
+      return testSnapshot();
+    },
+
+    spawnWaveForTest() {
+      state.waveSpawnQueue = [];
+      state.enemies = [];
+      state.pendingSpawns = 0;
+      spawnWave();
+      return testSnapshot();
+    },
+
+    hitEnemy(index, damage, source = null) {
+      const enemy = state.enemies[index];
+      if (!enemy) return { result: null, snapshot: testSnapshot() };
+      enemy.spawnShield = 0;
+      const result = enemy.hit(damage, source);
+      return { result, snapshot: testSnapshot() };
     },
 
     setSpawnQueue(entries) {
