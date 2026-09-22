@@ -940,16 +940,20 @@ function findSecondarySpawnCell(grid, primary, base) {
     [px, py - 1],
     [px + 1, py - 1],
     [px - 1, py - 1],
+    [px + 2, py - 1],
+    [px - 2, py - 1],
   ];
 
   for (const [x, y] of candidates) {
     if (x < 0 || y < 0 || x >= COLS || y >= ROWS) continue;
     if (x === base[0] && y === base[1]) continue;
-    const tile = grid[y]?.[x];
-    if (tile && ['floor', 'brush', 'ice'].includes(tile.type)) return [x, y];
+
+    const pos = gridEntityPosition([x, y], TANK_SIZE);
+    const candidate = new Tank(pos.x, pos.y, 'player', 'raider', 2);
+    if (canOccupy(candidate, candidate.x, candidate.y)) return [x, y];
   }
 
-  return [px, Math.max(0, py - 1)];
+  return null;
 }
 
 function makeTile(type = 'floor') {
@@ -1067,9 +1071,15 @@ function loadStage({ preserveBaseHp = true, announce = true } = {}) {
   state.player2Spawn = null;
   if (state.coop) {
     const spawn2 = findSecondarySpawnCell(state.grid, level.playerSpawn, level.baseSpawn);
-    const p2 = gridEntityPosition(spawn2, TANK_SIZE);
-    state.player2Spawn = spawn2;
-    state.player2 = new Tank(p2.x, p2.y, 'player', 'raider', 2);
+    if (spawn2) {
+      const p2 = gridEntityPosition(spawn2, TANK_SIZE);
+      state.player2Spawn = spawn2;
+      state.player2 = new Tank(p2.x, p2.y, 'player', 'raider', 2);
+    } else {
+      state.player2Spawn = level.playerSpawn;
+      state.pendingRespawns.push(2);
+      state.respawnClock = 0.12;
+    }
   }
 
   if (announce) {
@@ -1398,7 +1408,11 @@ function damageBase() {
 
 function respawnPlayer(slot) {
   const spawnCell = slot === 2
-    ? (state.player2Spawn || findSecondarySpawnCell(state.grid, currentLevel().playerSpawn, currentLevel().baseSpawn))
+    ? (
+      state.player2Spawn ||
+      findSecondarySpawnCell(state.grid, currentLevel().playerSpawn, currentLevel().baseSpawn) ||
+      currentLevel().playerSpawn
+    )
     : currentLevel().playerSpawn;
 
   const offsets = [];
