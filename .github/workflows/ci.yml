@@ -17,6 +17,8 @@ jobs:
           node --check src/levels.js
           node --check src/weaponSystem.js
           node --check src/brickSystem.js
+          node --check src/levelSchema.js
+          node --check src/editor.js
       - name: Validate web manifest JSON
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest ok')"
       - name: Validate level data
@@ -32,6 +34,10 @@ jobs:
           test -f sw.js
           test -f src/weaponSystem.js
           test -f src/brickSystem.js
+          test -f src/levelSchema.js
+          test -f src/editor.js
+          test -f editor.html
+          test -f editor.css
           test -f icons/icon-192.png
           test -f icons/icon-512.png
           test -f icons/apple-touch-icon.png
@@ -45,3 +51,4 @@ jobs:
           test -n "$CHROME_PATH"
           node scripts/responsive-smoke.mjs
           node scripts/gameplay-smoke.mjs
+          node scripts/editor-smoke.mjs
