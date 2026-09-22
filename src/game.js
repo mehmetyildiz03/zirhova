@@ -2171,6 +2171,8 @@ if (window.location.hostname === '127.0.0.1') {
         activePlayers: activePlayers().length,
         p1: state.player ? { x: state.player.x, y: state.player.y, dead: state.player.dead } : null,
         p2: state.player2 ? { x: state.player2.x, y: state.player2.y, dead: state.player2.dead } : null,
+        touchInput: { ...touchInput },
+        bullets: state.bullets.length,
       };
     },
   };
