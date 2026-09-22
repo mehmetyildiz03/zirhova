@@ -94,11 +94,45 @@ export function normalizeCustomLevel(input = {}) {
 }
 
 export function validateCustomLevel(input) {
-  const level = normalizeCustomLevel(input);
+  const raw = input && typeof input === 'object' ? input : {};
   const errors = [];
 
-  if (!isCoord(level.playerSpawn)) errors.push('Oyuncu başlangıcı geçersiz.');
-  if (!isCoord(level.baseSpawn)) errors.push('Üs konumu geçersiz.');
+  if (!isCoord(raw.playerSpawn)) errors.push('Oyuncu başlangıcı geçersiz.');
+  if (!isCoord(raw.baseSpawn)) errors.push('Üs konumu geçersiz.');
+
+  if (!Array.isArray(raw.enemySpawns)) {
+    errors.push('Düşman başlangıç noktaları listesi geçersiz.');
+  } else {
+    const seenEnemySpawns = new Set();
+    for (const coord of raw.enemySpawns) {
+      if (!isCoord(coord)) {
+        errors.push('Geçersiz düşman başlangıç koordinatı var.');
+        continue;
+      }
+      const key = coordKey(coord);
+      if (seenEnemySpawns.has(key)) {
+        errors.push(`Düşman başlangıcı ${key} birden fazla kez eklenmiş.`);
+      }
+      seenEnemySpawns.add(key);
+    }
+  }
+
+  for (const key of TERRAIN_KEYS) {
+    const rawList = raw[key];
+    if (rawList === undefined) continue;
+    if (!Array.isArray(rawList)) {
+      errors.push(`${key} arazi listesi geçersiz.`);
+      continue;
+    }
+    for (const coord of rawList) {
+      if (!isCoord(coord)) {
+        errors.push(`${key} içinde harita sınırı dışında/geçersiz koordinat var.`);
+      }
+    }
+  }
+
+  const level = normalizeCustomLevel(raw);
+
   if (level.enemySpawns.length < 2) errors.push('En az 2 düşman başlangıç noktası gerekli.');
 
   const occupied = new Map();
