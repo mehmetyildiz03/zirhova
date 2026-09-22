@@ -39,11 +39,13 @@
         <div class="panel">
           <div class="kicker">ORİJİNAL TOP-DOWN TANK ARCADE</div>
           <h2>Üssü koru. Hattı kır.</h2>
-          <p>WASD / ok tuşları ile hareket et, <strong>Space</strong> ile ateş et. Mobilde soldaki yön pedini kullan, sağdaki ATEŞ düğmesini basılı tutabilirsin. Tuğla duvarlar artık merminin geldiği yönden parça parça açılır. NAMLU II/III daha derin koridor açar; III. kademe sarı çatlaklı taktik çeliği de parçalayabilir.</p>
+          <p>Tek oyuncuda WASD veya ok tuşlarıyla hareket et, <strong>Space / Enter</strong> ile ateş et. Mobilde soldaki yön pedi ve sağdaki ATEŞ düğmesi P1'i kontrol eder. Yerel co-op'ta P1 = WASD/Space, P2 = ok tuşları/Enter; iki gamepad de desteklenir.</p>
           <div class="panel-actions">
-            <button id="startBtn">OYUNA BAŞLA</button>
+            <button id="startBtn">1 OYUNCU</button>
+            <button id="coopBtn" class="secondary">2 OYUNCU</button>
             <button id="installBtn" class="secondary" hidden>TELEFONA YÜKLE</button>
           </div>
+          <p id="controllerStatus" class="controller-status">GAMEPAD: bağlı değil</p>
           <p id="installHint" class="install-hint" hidden></p>
         </div>
       </div>
@@ -93,7 +95,7 @@
     </section>
 
     <footer class="footer-note">
-      <span>v0.6 — kısmi duvar yıkımı / saha fiziği</span>
+      <span>v0.8 — gamepad / yerel 2 oyunculu co-op</span>
       <span id="bestRun">En iyi: B1 · 0 puan</span>
       <a class="editor-link" href="./editor.html">HARİTA EDİTÖRÜ</a>
     </footer>
