@@ -86,7 +86,7 @@ const mode = await page.evaluate(() => document.body.dataset.gameMode);
 if (mode !== 'custom') throw new Error(`Game did not enter custom mode: ${mode}`);
 
 const startLabel = (await page.locator('#startBtn').textContent())?.trim();
-if (startLabel !== 'ÖZEL HARİTAYI BAŞLAT') {
+if (startLabel !== '1 OYUNCU · ÖZEL') {
   throw new Error(`Custom start label invalid: ${startLabel}`);
 }
 
