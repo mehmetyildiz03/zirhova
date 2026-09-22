@@ -63,6 +63,22 @@ for (const level of LEVELS) {
     assert(!terrain, `${level.id}: spawn ${spawn} overlaps ${terrain}`);
   }
 
+  const baseKey = key(level.baseSpawn);
+  const immediatePlayerExits = [[1,0],[-1,0],[0,1],[0,-1]]
+    .map(([dx, dy]) => [level.playerSpawn[0] + dx, level.playerSpawn[1] + dy])
+    .filter(inBounds)
+    .filter(coord => {
+      const k = key(coord);
+      if (k === baseKey) return false;
+      const terrain = occupied.get(k);
+      return !terrain || terrain === 'ice' || terrain === 'brush';
+    });
+
+  assert(
+    immediatePlayerExits.length >= 2,
+    `${level.id}: player spawn needs at least two immediately driveable exits`
+  );
+
   for (const enemySpawn of level.enemySpawns) {
     assert(
       reachable(level, enemySpawn, level.baseSpawn) || reachable(level, enemySpawn, level.playerSpawn),
