@@ -3,7 +3,7 @@ import { MAX_WEAPON_TIER, upgradeWeaponTier, weaponProfile, damageBreakableSteel
 import { BRICK_GRID, BRICK_FULL_MASK, brickContainsPoint, damageBrick, brickBlocksRect, brickHasCell, countBrickCells } from './brickSystem.js';
 import { validateCustomLevel } from './levelSchema.js';
 import { freshActions, mergeActions, readGamepadActions, pickDirection } from './controllerSystem.js';
-import { NAV_STEP, nearestNavStart, isNavAlignedStart } from './navigationSystem.js';
+import { NAV_STEP, nearestNavStart, isNavAlignedStart, navStartCandidates } from './navigationSystem.js';
 
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
@@ -40,6 +40,7 @@ const WAVES_PER_STAGE = 3;
 const MAX_BASE_HP = 5;
 const TANK_SIZE = 34;
 const MAX_MOVE_STEP = 5;
+const TURN_ASSIST_MAX = 12;
 const MAX_ACTIVE_ENEMIES = 4;
 const POWERUP_LIFETIME = 11;
 const CUSTOM_LEVEL_KEY = 'zirhova-custom-level-v1';
@@ -393,37 +394,47 @@ class Tank extends RectEntity {
     return preferred[0];
   }
 
-  canMove(dir, distance = 8) {
-    const d = DIRS[dir];
-    let x = this.x;
-    let y = this.y;
-
-    if (DIRS[dir].axis !== DIRS[this.dir].axis) {
-      if (DIRS[dir].axis === 'v') {
-        x = nearestNavStart(this.cx, this.w, WORLD);
-      } else {
-        y = nearestNavStart(this.cy, this.h, WORLD);
-      }
-
-      if (!canOccupy(this, x, y)) return false;
+  findTurnAlignment(nextDir) {
+    if (DIRS[nextDir].axis === DIRS[this.dir].axis) {
+      return { x: this.x, y: this.y, distance: 0 };
     }
 
-    return canOccupy(this, x + d.x * distance, y + d.y * distance);
+    const verticalTurn = DIRS[nextDir].axis === 'v';
+    const center = verticalTurn ? this.cx : this.cy;
+    const size = verticalTurn ? this.w : this.h;
+    const candidates = navStartCandidates(center, size, WORLD, 2, 2);
+
+    for (const candidate of candidates) {
+      if (candidate.distance > TURN_ASSIST_MAX) continue;
+
+      const x = verticalTurn ? candidate.start : this.x;
+      const y = verticalTurn ? this.y : candidate.start;
+      if (canOccupy(this, x, y)) {
+        return { x, y, distance: candidate.distance };
+      }
+    }
+
+    return null;
+  }
+
+  canMove(dir, distance = 8) {
+    const d = DIRS[dir];
+    const alignment = this.findTurnAlignment(dir);
+    if (!alignment) return false;
+
+    return canOccupy(
+      this,
+      alignment.x + d.x * distance,
+      alignment.y + d.y * distance
+    );
   }
 
   alignForTurn(nextDir) {
-    if (DIRS[nextDir].axis === DIRS[this.dir].axis) return true;
+    const alignment = this.findTurnAlignment(nextDir);
+    if (!alignment) return false;
 
-    if (DIRS[nextDir].axis === 'v') {
-      const desiredX = nearestNavStart(this.cx, this.w, WORLD);
-      if (!canOccupy(this, desiredX, this.y)) return false;
-      this.x = desiredX;
-    } else {
-      const desiredY = nearestNavStart(this.cy, this.h, WORLD);
-      if (!canOccupy(this, this.x, desiredY)) return false;
-      this.y = desiredY;
-    }
-
+    this.x = alignment.x;
+    this.y = alignment.y;
     return true;
   }
 
