@@ -1,7 +1,7 @@
 import { LEVELS } from '../src/levels.js';
 
 const SIZE = 16;
-const terrainKeys = ['bricks', 'steel', 'water', 'ice', 'brush'];
+const terrainKeys = ['bricks', 'steel', 'breakableSteel', 'water', 'ice', 'brush'];
 
 function key([x, y]) {
   return `${x},${y}`;
@@ -18,6 +18,7 @@ function assert(condition, message) {
 function reachable(level, start, goal) {
   const blocked = new Set([
     ...(level.steel || []).map(key),
+    ...(level.breakableSteel || []).map(key),
     ...(level.water || []).map(key),
   ]);
 
