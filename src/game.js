@@ -1962,5 +1962,17 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
 
+const customPreview = readCustomLevel();
+document.body.dataset.gameMode = customPreview ? 'custom' : 'campaign';
+if (CUSTOM_MODE) {
+  const startButton = document.querySelector('#startBtn');
+  if (customPreview) {
+    startButton.textContent = 'ÖZEL HARİTAYI BAŞLAT';
+  } else {
+    startButton.textContent = 'NORMAL OYUNA BAŞLA';
+    showInstallHint('Kayıtlı geçerli özel harita bulunamadı; normal kampanya açılacak.');
+  }
+}
+
 state.grid = buildMap(currentLevel());
 syncUI();
