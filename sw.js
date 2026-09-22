@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.8.1-mobile-controls';
+const CACHE = 'zirhova-v0.8.2-brick-chunks';
 const ASSETS = [
   './',
   './index.html',
