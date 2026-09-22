@@ -1,5 +1,6 @@
 import { LEVELS } from './levels.js';
 import { MAX_WEAPON_TIER, upgradeWeaponTier, weaponProfile, damageBreakableSteel } from './weaponSystem.js';
+import { BRICK_GRID, BRICK_FULL_MASK, brickContainsPoint, damageBrick, brickBlocksRect, brickHasCell, countBrickCells } from './brickSystem.js';
 
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
@@ -604,11 +605,31 @@ class Bullet extends RectEntity {
       }
 
       const tile = tileAt(this.cx, this.cy);
-      if (tile && !['floor', 'water', 'brush', 'ice'].includes(tile.type)) {
+      const localX = ((this.cx % TILE) + TILE) % TILE;
+      const localY = ((this.cy % TILE) + TILE) % TILE;
+      const brickCollision =
+        tile?.type === 'brick' &&
+        brickContainsPoint(tile.mask, localX, localY, TILE);
+      const terrainCollision =
+        tile &&
+        !['floor', 'water', 'brush', 'ice'].includes(tile.type) &&
+        (tile.type !== 'brick' || brickCollision);
+
+      if (terrainCollision) {
         if (tile.type === 'brick') {
-          tile.hp -= this.strong ? Math.max(2, this.damage) : 1;
-          debris(this.cx, this.cy, COLORS.brickLight);
-          if (tile.hp <= 0) {
+          const before = countBrickCells(tile.mask);
+          tile.mask = damageBrick(
+            tile.mask,
+            localX,
+            localY,
+            this.dx,
+            this.dy,
+            this.strong ? Math.max(2, this.damage) : 1,
+            TILE
+          );
+          const removed = before - countBrickCells(tile.mask);
+          debris(this.cx, this.cy, COLORS.brickLight, Math.max(3, removed * 2));
+          if (!tile.mask) {
             tile.type = 'floor';
             addShake(1.4);
           }
@@ -793,8 +814,9 @@ function currentLevel() {
 }
 
 function makeTile(type = 'floor') {
-  const hp = type === 'brick' ? 2 : (type === 'breakableSteel' ? 3 : 999);
-  return { type, hp };
+  const hp = type === 'breakableSteel' ? 3 : 999;
+  const mask = type === 'brick' ? BRICK_FULL_MASK : 0;
+  return { type, hp, mask };
 }
 
 function buildMap(level) {
@@ -1232,7 +1254,24 @@ function canOccupy(entity, x, y, { ignoreTanks = false } = {}) {
   for (let ty = top; ty <= bottom; ty++) {
     for (let tx = left; tx <= right; tx++) {
       const tile = state.grid[ty]?.[tx];
-      if (tile && !['floor', 'brush', 'ice'].includes(tile.type)) return false;
+      if (!tile || ['floor', 'brush', 'ice'].includes(tile.type)) continue;
+
+      if (tile.type === 'brick') {
+        const tileX = tx * TILE;
+        const tileY = ty * TILE;
+        const blocked = brickBlocksRect(
+          tile.mask,
+          x + 2 - tileX,
+          y + 2 - tileY,
+          x + entity.w - 2 - tileX,
+          y + entity.h - 2 - tileY,
+          TILE
+        );
+        if (blocked) return false;
+        continue;
+      }
+
+      return false;
     }
   }
 
@@ -1287,11 +1326,17 @@ function clearShot(x1, y1, x2, y2, axis) {
 
   for (let i = 1; i < steps; i++) {
     const t = i / steps;
-    const tile = tileAt(
-      x1 + (x2 - x1) * t,
-      y1 + (y2 - y1) * t
-    );
-    if (tile && (tile.type === 'brick' || tile.type === 'steel' || tile.type === 'breakableSteel')) return false;
+    const sampleX = x1 + (x2 - x1) * t;
+    const sampleY = y1 + (y2 - y1) * t;
+    const tile = tileAt(sampleX, sampleY);
+
+    if (tile?.type === 'brick') {
+      const localX = ((sampleX % TILE) + TILE) % TILE;
+      const localY = ((sampleY % TILE) + TILE) % TILE;
+      if (brickContainsPoint(tile.mask, localX, localY, TILE)) return false;
+    } else if (tile && (tile.type === 'steel' || tile.type === 'breakableSteel')) {
+      return false;
+    }
   }
   return true;
 }
@@ -1350,8 +1395,10 @@ function findPathDirection(source, target, brickCost = 4) {
       if (!tile) continue;
 
       let cost = 1;
-      if (tile.type === 'brick') cost = brickCost;
-      else if (tile.type === 'steel' || tile.type === 'breakableSteel' || tile.type === 'water') continue;
+      if (tile.type === 'brick') {
+        const fillRatio = countBrickCells(tile.mask) / (BRICK_GRID * BRICK_GRID);
+        cost = Math.max(1, brickCost * fillRatio);
+      } else if (tile.type === 'steel' || tile.type === 'breakableSteel' || tile.type === 'water') continue;
       else if (tile.type === 'brush') cost = 1.08;
       else if (tile.type === 'ice') cost = 1.04;
 
@@ -1462,21 +1509,21 @@ function drawTerrain() {
       const py = y * TILE;
 
       if (tile.type === 'brick') {
-        ctx.fillStyle = COLORS.brick;
-        ctx.fillRect(px + 3, py + 3, TILE - 6, TILE - 6);
-        ctx.fillStyle = COLORS.brickLight;
-        for (let r = 0; r < 3; r++) {
-          for (let c = 0; c < 2; c++) {
-            ctx.fillRect(px + 6 + c * 19 + (r % 2) * 7, py + 7 + r * 13, 14, 7);
+        const cell = TILE / BRICK_GRID;
+        for (let row = 0; row < BRICK_GRID; row++) {
+          for (let col = 0; col < BRICK_GRID; col++) {
+            if (!brickHasCell(tile.mask, col, row)) continue;
+
+            const bx = px + col * cell;
+            const by = py + row * cell;
+            ctx.fillStyle = COLORS.brick;
+            ctx.fillRect(bx + 1, by + 1, cell - 2, cell - 2);
+
+            ctx.fillStyle = COLORS.brickLight;
+            const stagger = row % 2 ? 2 : 0;
+            ctx.fillRect(bx + 2 + stagger, by + 3, Math.max(3, cell - 6 - stagger), 3);
+            ctx.fillRect(bx + 2, by + 8, Math.max(3, cell - 5), 2);
           }
-        }
-        if (tile.hp === 1) {
-          ctx.strokeStyle = '#2e1710';
-          ctx.lineWidth = 4;
-          ctx.beginPath();
-          ctx.moveTo(px + 6, py + 8);
-          ctx.lineTo(px + 38, py + 40);
-          ctx.stroke();
         }
       } else if (tile.type === 'steel' || tile.type === 'breakableSteel') {
         const breakable = tile.type === 'breakableSteel';
