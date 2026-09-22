@@ -3,6 +3,7 @@ import { MAX_WEAPON_TIER, upgradeWeaponTier, weaponProfile, damageBreakableSteel
 import { BRICK_GRID, BRICK_FULL_MASK, brickContainsPoint, damageBrick, brickBlocksRect, brickHasCell, countBrickCells } from './brickSystem.js';
 import { validateCustomLevel } from './levelSchema.js';
 import { freshActions, mergeActions, readGamepadActions, pickDirection } from './controllerSystem.js';
+import { NAV_STEP, nearestNavStart, isNavAlignedStart } from './navigationSystem.js';
 
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
@@ -310,11 +311,12 @@ class Tank extends RectEntity {
     const onIce = tileAt(this.cx, this.cy)?.type === 'ice';
 
     if (dir) {
-      this.alignForTurn(dir);
-      this.dir = dir;
-      this.momentumDir = dir;
-      const d = DIRS[dir];
-      this.move(d.x * this.speed * dt, d.y * this.speed * dt);
+      if (this.alignForTurn(dir)) {
+        this.dir = dir;
+        this.momentumDir = dir;
+        const d = DIRS[dir];
+        this.move(d.x * this.speed * dt, d.y * this.speed * dt);
+      }
     } else if (onIce && this.momentumDir) {
       const d = DIRS[this.momentumDir];
       this.move(d.x * this.speed * 0.72 * dt, d.y * this.speed * 0.72 * dt);
@@ -329,7 +331,7 @@ class Tank extends RectEntity {
       : state.base;
 
     const shotDir = lineOfSightDirection(this, target);
-    if (shotDir && this.fireCooldown <= 0) {
+    if (shotDir && this.fireCooldown <= 0 && this.alignForTurn(shotDir)) {
       this.dir = shotDir;
       this.shoot();
     }
@@ -338,7 +340,8 @@ class Tank extends RectEntity {
     this.decisionClock -= dt * (onIce ? 0.28 : 1);
     if (this.decisionClock <= 0) {
       this.decisionClock = 0.24 + Math.random() * 0.36;
-      this.dir = this.chooseDirection(target);
+      const nextDir = this.chooseDirection(target);
+      if (this.alignForTurn(nextDir)) this.dir = nextDir;
     }
 
     const ahead = tileAhead(this, this.dir, 25);
@@ -353,7 +356,8 @@ class Tank extends RectEntity {
     if (!moved) {
       this.stuckClock += dt;
       if (this.stuckClock > 0.09) {
-        this.dir = this.chooseDirection(target, this.dir);
+        const nextDir = this.chooseDirection(target, this.dir);
+        if (this.alignForTurn(nextDir)) this.dir = nextDir;
         this.stuckClock = 0;
         this.decisionClock = 0.12;
       }
@@ -391,23 +395,36 @@ class Tank extends RectEntity {
 
   canMove(dir, distance = 8) {
     const d = DIRS[dir];
-    return canOccupy(this, this.x + d.x * distance, this.y + d.y * distance);
+    let x = this.x;
+    let y = this.y;
+
+    if (DIRS[dir].axis !== DIRS[this.dir].axis) {
+      if (DIRS[dir].axis === 'v') {
+        x = nearestNavStart(this.cx, this.w, WORLD);
+      } else {
+        y = nearestNavStart(this.cy, this.h, WORLD);
+      }
+
+      if (!canOccupy(this, x, y)) return false;
+    }
+
+    return canOccupy(this, x + d.x * distance, y + d.y * distance);
   }
 
   alignForTurn(nextDir) {
-    if (DIRS[nextDir].axis === DIRS[this.dir].axis) return;
+    if (DIRS[nextDir].axis === DIRS[this.dir].axis) return true;
 
     if (DIRS[nextDir].axis === 'v') {
-      const desiredX = nearestLaneStart(this.cx, this.w);
-      if (Math.abs(desiredX - this.x) <= 10 && canOccupy(this, desiredX, this.y)) {
-        this.x = desiredX;
-      }
+      const desiredX = nearestNavStart(this.cx, this.w, WORLD);
+      if (!canOccupy(this, desiredX, this.y)) return false;
+      this.x = desiredX;
     } else {
-      const desiredY = nearestLaneStart(this.cy, this.h);
-      if (Math.abs(desiredY - this.y) <= 10 && canOccupy(this, this.x, desiredY)) {
-        this.y = desiredY;
-      }
+      const desiredY = nearestNavStart(this.cy, this.h, WORLD);
+      if (!canOccupy(this, this.x, desiredY)) return false;
+      this.y = desiredY;
     }
+
+    return true;
   }
 
   move(dx, dy) {
@@ -1465,11 +1482,6 @@ function canOccupy(entity, x, y, { ignoreTanks = false } = {}) {
   return true;
 }
 
-function nearestLaneStart(center, size) {
-  const laneCenter = Math.round((center - TILE / 2) / TILE) * TILE + TILE / 2;
-  return clamp(laneCenter - size / 2, 2, WORLD - size - 2);
-}
-
 function tileAhead(entity, dir, distance = 24) {
   const d = DIRS[dir];
   return tileAt(entity.cx + d.x * distance, entity.cy + d.y * distance);
@@ -2207,8 +2219,24 @@ if (window.location.hostname === '127.0.0.1') {
         coop: state.coop,
         lives: state.lives,
         activePlayers: activePlayers().length,
-        p1: state.player ? { x: state.player.x, y: state.player.y, dir: state.player.dir, fireCooldown: state.player.fireCooldown, dead: state.player.dead } : null,
-        p2: state.player2 ? { x: state.player2.x, y: state.player2.y, dir: state.player2.dir, dead: state.player2.dead } : null,
+        p1: state.player ? {
+          x: state.player.x,
+          y: state.player.y,
+          dir: state.player.dir,
+          fireCooldown: state.player.fireCooldown,
+          navX: isNavAlignedStart(state.player.x, state.player.w, WORLD),
+          navY: isNavAlignedStart(state.player.y, state.player.h, WORLD),
+          dead: state.player.dead,
+        } : null,
+        p2: state.player2 ? {
+          x: state.player2.x,
+          y: state.player2.y,
+          dir: state.player2.dir,
+          navX: isNavAlignedStart(state.player2.x, state.player2.w, WORLD),
+          navY: isNavAlignedStart(state.player2.y, state.player2.h, WORLD),
+          dead: state.player2.dead,
+        } : null,
+        navStep: NAV_STEP,
         touchInput: { ...touchInput },
         bullets: state.bullets.length,
       };
