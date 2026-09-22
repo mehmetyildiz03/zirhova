@@ -409,7 +409,7 @@ class Tank extends RectEntity {
 
       const x = verticalTurn ? candidate.start : this.x;
       const y = verticalTurn ? this.y : candidate.start;
-      if (canOccupy(this, x, y)) {
+      if (canShiftEntity(this, x, y)) {
         return { x, y, distance: candidate.distance };
       }
     }
@@ -880,6 +880,8 @@ const state = {
   coop: false,
   player2: null,
   player2Spawn: null,
+  pendingRespawns: [],
+  respawnClock: 0,
 };
 
 function currentLevel() {
@@ -1023,6 +1025,8 @@ function resetGame(coopMode = state.coop) {
     coop,
     player2: null,
     player2Spawn: null,
+    pendingRespawns: [],
+    respawnClock: 0,
   });
 
   document.body.dataset.playMode = coop ? 'coop' : 'solo';
@@ -1048,6 +1052,8 @@ function loadStage({ preserveBaseHp = true, announce = true } = {}) {
   state.spawnClock = 0;
   state.enemyFreeze = 0;
   state.waveTimer = 0;
+  state.pendingRespawns = [];
+  state.respawnClock = 0;
 
   const bp = gridEntityPosition(level.baseSpawn, 42);
   const pp = gridEntityPosition(level.playerSpawn, TANK_SIZE);
@@ -1109,6 +1115,13 @@ function updateSpawnQueue(dt) {
   enemy.carrier = next.carrier;
 
   const placement = findSpawnPlacement(enemy);
+  if (!placement) {
+    state.waveSpawnQueue.unshift(next);
+    state.pendingSpawns = state.waveSpawnQueue.length;
+    state.spawnClock = 0.16;
+    return;
+  }
+
   enemy.x = placement.x;
   enemy.y = placement.y;
   state.enemies.push(enemy);
@@ -1121,12 +1134,13 @@ function updateSpawnQueue(dt) {
 function findSpawnPlacement(enemy) {
   if (canOccupy(enemy, enemy.x, enemy.y)) return { x: enemy.x, y: enemy.y };
 
-  for (const offset of [10, 20, 30, 40]) {
+  for (const offset of [8, 16, 24, 32, 40, 48]) {
     if (canOccupy(enemy, enemy.x, enemy.y + offset)) {
       return { x: enemy.x, y: enemy.y + offset };
     }
   }
-  return { x: enemy.x, y: enemy.y };
+
+  return null;
 }
 
 function chooseEnemyType(difficulty, index, count) {
