@@ -51,6 +51,7 @@ await page.mouse.click(
   box.y + (cell + 0.5) * cellSize
 );
 
+await page.locator('.transfer summary').click();
 await page.click('#exportBtn');
 const jsonText = await page.locator('#jsonBox').inputValue();
 const exported = JSON.parse(jsonText);
