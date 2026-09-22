@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.8.3-nav-grid';
+const CACHE = 'zirhova-v0.8.4-turn-assist';
 const ASSETS = [
   './',
   './index.html',
