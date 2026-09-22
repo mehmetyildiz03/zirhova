@@ -2472,6 +2472,28 @@ if (window.location.hostname === '127.0.0.1') {
       return testSnapshot();
     },
 
+    setSpawnQueue(entries) {
+      state.running = true;
+      state.gameOver = false;
+      state.waveSpawnQueue = entries.map(entry => ({
+        spawn: [...entry.spawn],
+        type: entry.type || 'raider',
+        carrier: Boolean(entry.carrier),
+      }));
+      state.pendingSpawns = state.waveSpawnQueue.length;
+      state.spawnBlockedFor = 0;
+      state.spawnClock = 0;
+      return testSnapshot();
+    },
+
+    stepSpawn(dt = 0.2) {
+      updateSpawnQueue(dt);
+      return {
+        blockedFor: state.spawnBlockedFor,
+        snapshot: testSnapshot(),
+      };
+    },
+
     clearEnemies() {
       state.enemies = [];
       return testSnapshot();
