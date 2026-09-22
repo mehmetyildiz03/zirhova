@@ -1,6 +1,7 @@
 import { LEVELS } from './levels.js';
 import { MAX_WEAPON_TIER, upgradeWeaponTier, weaponProfile, damageBreakableSteel } from './weaponSystem.js';
 import { BRICK_GRID, BRICK_FULL_MASK, brickContainsPoint, damageBrick, brickBlocksRect, brickHasCell, countBrickCells } from './brickSystem.js';
+import { validateCustomLevel } from './levelSchema.js';
 
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
@@ -37,6 +38,8 @@ const TANK_SIZE = 34;
 const MAX_MOVE_STEP = 5;
 const MAX_ACTIVE_ENEMIES = 4;
 const POWERUP_LIFETIME = 11;
+const CUSTOM_LEVEL_KEY = 'zirhova-custom-level-v1';
+const CUSTOM_MODE = new URLSearchParams(window.location.search).get('custom') === '1';
 
 canvas.width = WORLD;
 canvas.height = WORLD;
@@ -777,6 +780,19 @@ class Base extends RectEntity {
 
 const progress = loadProgress();
 
+function readCustomLevel() {
+  if (!CUSTOM_MODE) return null;
+
+  try {
+    const raw = localStorage.getItem(CUSTOM_LEVEL_KEY);
+    if (!raw) return null;
+    const result = validateCustomLevel(JSON.parse(raw));
+    return result.ok ? result.level : null;
+  } catch {
+    return null;
+  }
+}
+
 const state = {
   running: false,
   gameOver: false,
@@ -807,10 +823,11 @@ const state = {
   baseShield: 0,
   waveSpawnQueue: [],
   spawnClock: 0,
+  customLevel: null,
 };
 
 function currentLevel() {
-  return LEVELS[(state.stage - 1) % LEVELS.length];
+  return state.customLevel || LEVELS[(state.stage - 1) % LEVELS.length];
 }
 
 function makeTile(type = 'floor') {
@@ -854,6 +871,7 @@ function gridEntityPosition([tx, ty], size) {
 function resetGame() {
   state.runToken++;
   clearAllInput();
+  const customLevel = readCustomLevel();
 
   Object.assign(state, {
     running: true,
@@ -881,6 +899,7 @@ function resetGame() {
     baseShield: 0,
     waveSpawnQueue: [],
     spawnClock: 0,
+    customLevel,
   });
 
   loadStage({ preserveBaseHp: false, announce: true });
@@ -911,7 +930,14 @@ function loadStage({ preserveBaseHp = true, announce = true } = {}) {
   state.base = new Base(bp.x, bp.y, previousHp);
   state.player = new Tank(pp.x, pp.y, 'player');
 
-  if (announce) showNotice(`BÖLÜM ${state.stage} · ${level.name}`, 1.4);
+  if (announce) {
+    showNotice(
+      state.customLevel
+        ? `ÖZEL · ${level.name}`
+        : `BÖLÜM ${state.stage} · ${level.name}`,
+      1.4
+    );
+  }
   spawnWave();
   syncUI();
 }
