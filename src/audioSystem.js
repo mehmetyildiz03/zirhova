@@ -231,7 +231,12 @@ export function createAudioSystem() {
       playRecipe({ tones: [{ freq, endFreq: freq, duration, type, gain }], noise: null });
     },
     cannon(options = {}) {
-      if (rateLimit(options.player ? 'player-cannon' : options.boss ? 'boss-cannon' : 'enemy-cannon', options.player ? 38 : 32)) return;
+      const key = options.player
+        ? `player-cannon-${options.slot || 1}`
+        : options.boss
+          ? 'boss-cannon'
+          : 'enemy-cannon';
+      if (rateLimit(key, options.player ? 38 : 32)) return;
       playRecipe(cannonRecipe(options));
     },
     impact(kind = 'steel') {
