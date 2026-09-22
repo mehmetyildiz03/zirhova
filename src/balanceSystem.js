@@ -86,18 +86,23 @@ export function buildEnemyRoster({
     ENEMY_UNLOCK_WAVE[anchor] <= w &&
     (caps[anchor] || 0) > 0
   );
+  const randomCaps = { ...caps };
+
+  if (reservedAnchor) {
+    randomCaps[anchor] = Math.max(0, (randomCaps[anchor] || 0) - 1);
+  }
 
   const randomSlots = safeCount - (reservedAnchor ? 1 : 0);
 
   for (let i = 0; i < randomSlots; i++) {
     const eligible = TYPE_ORDER.filter(type =>
       ENEMY_UNLOCK_WAVE[type] <= w &&
-      counts[type] < (caps[type] || 0) &&
+      counts[type] < (randomCaps[type] || 0) &&
       (weights[type] || 0) > 0
     );
 
     let type = weightedPick(eligible.length ? eligible : ['raider'], weights, rng);
-    if (counts[type] >= (caps[type] || 0)) type = 'raider';
+    if (counts[type] >= (randomCaps[type] || 0)) type = 'raider';
 
     roster.push(type);
     counts[type]++;
