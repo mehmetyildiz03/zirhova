@@ -2767,11 +2767,57 @@ if (directionPad) {
   directionPad.addEventListener('lostpointercapture', endDirection);
 }
 
-document.querySelector('#startBtn').addEventListener('click', () => resetGame(false));
-UI.coopBtn?.addEventListener('click', () => resetGame(true));
-document.querySelector('#restartBtn').addEventListener('click', () => resetGame(state.coop));
+function restartCurrentRun() {
+  if (state.runClass === 'campaign') {
+    const checkpoint = readCampaignCheckpoint();
+    if (checkpoint) {
+      resetGame(checkpoint.coop, {
+        checkpoint,
+        preserveCheckpoint: true,
+      });
+      return;
+    }
+  }
+
+  resetGame(state.coop, {
+    startStage: state.runClass === 'deployment' ? state.runStartStage : 1,
+    preserveCheckpoint: state.runClass === 'deployment',
+  });
+}
+
+document.querySelector('#startBtn').addEventListener('click', () =>
+  resetGame(false, { startStage: 1, preserveCheckpoint: false })
+);
+UI.coopBtn?.addEventListener('click', () =>
+  resetGame(true, { startStage: 1, preserveCheckpoint: false })
+);
+document.querySelector('#restartBtn').addEventListener('click', restartCurrentRun);
 UI.pauseBtn?.addEventListener('click', () => togglePause());
 UI.resumeBtn?.addEventListener('click', () => togglePause(false));
+
+UI.continueBtn?.addEventListener('click', () => {
+  const checkpoint = readCampaignCheckpoint();
+  if (!checkpoint) {
+    refreshRunEntryUI();
+    return;
+  }
+  resetGame(checkpoint.coop, {
+    checkpoint,
+    preserveCheckpoint: true,
+  });
+});
+
+UI.stageSelectBtn?.addEventListener('click', openStageSelect);
+UI.stageSelectCloseBtn?.addEventListener('click', () => UI.stageSelect?.classList.remove('show'));
+UI.stageSelectSoloBtn?.addEventListener('click', () => {
+  stageSelectCoop = false;
+  renderStageSelect();
+});
+UI.stageSelectCoopBtn?.addEventListener('click', () => {
+  stageSelectCoop = true;
+  renderStageSelect();
+});
+
 function openProfileOverlay() {
   renderProfile();
   UI.profile?.classList.add('show');
@@ -2782,6 +2828,7 @@ UI.gameOverProfileBtn?.addEventListener('click', openProfileOverlay);
 UI.profileCloseBtn?.addEventListener('click', () => UI.profile?.classList.remove('show'));
 
 renderProfile();
+refreshRunEntryUI();
 
 let last = performance.now();
 function frame(now) {
