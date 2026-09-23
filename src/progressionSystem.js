@@ -1,4 +1,4 @@
-export const PROFILE_VERSION = 2;
+export const PROFILE_VERSION = 3;
 export const PROFILE_STORAGE_KEY = 'zirhova-profile-v2';
 export const LEGACY_PROGRESS_KEY = 'zirhova-progress-v1';
 
@@ -36,7 +36,7 @@ export const ACHIEVEMENTS = Object.freeze([
     id: 'ten-thousand',
     title: 'BEŞ HANELİ',
     description: 'Tek koşuda 10.000 puana ulaş.',
-    earned: profile => profile.bestScore >= 10000,
+    earned: profile => Math.max(profile.bestScore, profile.bestDeploymentScore) >= 10000,
   },
   {
     id: 'centurion',
@@ -93,7 +93,7 @@ export const TANK_SKINS = Object.freeze([
     primary: '#ddd7c8',
     dark: '#777267',
     accent: '#ffffff',
-    unlocked: profile => profile.bestScore >= 10000,
+    unlocked: profile => Math.max(profile.bestScore, profile.bestDeploymentScore) >= 10000,
   },
   {
     id: 'obsidian',
@@ -110,8 +110,14 @@ export function createProfile(seed = {}) {
   const profile = {
     version: PROFILE_VERSION,
     bestScore: int(seed.bestScore, 0),
+    bestSoloScore: int(seed.bestSoloScore, 0),
+    bestCoopScore: int(seed.bestCoopScore, 0),
+    bestDeploymentScore: int(seed.bestDeploymentScore, 0),
     bestStage: int(seed.bestStage, 1, 1),
     runs: int(seed.runs, 0),
+    campaignRuns: int(seed.campaignRuns, 0),
+    deploymentRuns: int(seed.deploymentRuns, 0),
+    customRuns: int(seed.customRuns, 0),
     coopRuns: int(seed.coopRuns, 0),
     enemiesDefeated: int(seed.enemiesDefeated, 0),
     bossesDefeated: int(seed.bossesDefeated, 0),
@@ -191,7 +197,6 @@ export function applyProfileEvent(profile, event = {}) {
     case 'enemy-defeated':
       next.enemiesDefeated += 1;
       if (event.boss) next.bossesDefeated += 1;
-      next.bestScore = Math.max(next.bestScore, int(event.score, 0));
       break;
 
     case 'stage-completed':
@@ -206,16 +211,41 @@ export function applyProfileEvent(profile, event = {}) {
       );
       break;
 
-    case 'run-ended':
+    case 'run-ended': {
       next.runs += 1;
       if (event.coop) next.coopRuns += 1;
-      next.bestScore = Math.max(next.bestScore, int(event.score, 0));
+
+      const score = int(event.score, 0);
+      const runClass = event.runClass || 'campaign';
+
+      if (runClass === 'deployment') {
+        next.deploymentRuns += 1;
+        next.bestDeploymentScore = Math.max(next.bestDeploymentScore, score);
+      } else if (runClass === 'custom') {
+        next.customRuns += 1;
+      } else {
+        next.campaignRuns += 1;
+        next.bestScore = Math.max(next.bestScore, score);
+        if (event.coop) {
+          next.bestCoopScore = Math.max(next.bestCoopScore, score);
+        } else {
+          next.bestSoloScore = Math.max(next.bestSoloScore, score);
+        }
+      }
+
       next.bestStage = Math.max(next.bestStage, int(event.stage, 1, 1));
       break;
+    }
 
-    case 'score':
-      next.bestScore = Math.max(next.bestScore, int(event.score, 0));
+    case 'score': {
+      const score = int(event.score, 0);
+      if (event.runClass === 'deployment') {
+        next.bestDeploymentScore = Math.max(next.bestDeploymentScore, score);
+      } else if (event.runClass !== 'custom') {
+        next.bestScore = Math.max(next.bestScore, score);
+      }
       break;
+    }
 
     case 'stage-reached':
       next.bestStage = Math.max(next.bestStage, int(event.stage, 1, 1));
