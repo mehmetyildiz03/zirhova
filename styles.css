@@ -236,8 +236,17 @@ canvas {
   font-size: 10px;
 }
 
+#profileOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  padding: 12px;
+}
+
 .profile-panel {
   width: min(96%, 720px);
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
   text-align: left;
 }
 
@@ -662,8 +671,6 @@ canvas {
 
   .profile-panel {
     width: 100%;
-    max-height: calc(100dvh - 24px);
-    overflow: auto;
   }
 
   .profile-stats {
