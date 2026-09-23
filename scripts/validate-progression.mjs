@@ -24,7 +24,7 @@ let profile = createProfile();
 let result = applyProfileEvent(profile, { type: 'enemy-defeated', score: 100 });
 profile = result.profile;
 assert(profile.enemiesDefeated === 1, 'Enemy counter did not increment', profile);
-assert(profile.bestScore === 100, 'Live best score did not update', profile);
+assert(profile.bestScore === 0, 'Enemy kill must not update a run record before record classification', profile);
 assert(profile.achievementIds.includes('first-contact'), 'First-contact achievement missing', profile);
 
 result = applyProfileEvent(profile, { type: 'stage-completed', nextStage: 3 });
@@ -45,7 +45,7 @@ profile = result.profile;
 assert(profile.highestWeaponTier === 3, 'Weapon tier was not persisted', profile);
 assert(profile.achievementIds.includes('arsenal-master'), 'Arsenal achievement missing', profile);
 
-result = applyProfileEvent(profile, { type: 'score', score: 10000 });
+result = applyProfileEvent(profile, { type: 'score', score: 10000, runClass: 'campaign' });
 profile = result.profile;
 assert(profile.bestScore === 10000, '10k score did not persist', profile);
 assert(profile.achievementIds.includes('ten-thousand'), '10k achievement missing', profile);
