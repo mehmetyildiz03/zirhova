@@ -40,7 +40,7 @@ function assert(condition, message, data) {
 const history = [];
 let lastScore = 0;
 
-const TOTAL_WAVES = 36;
+const TOTAL_WAVES = 54;
 
 for (let completed = 1; completed <= TOTAL_WAVES; completed++) {
   const before = await call('snapshot');
@@ -139,33 +139,43 @@ for (let completed = 1; completed <= TOTAL_WAVES; completed++) {
   });
 }
 
-// Twelve complete stages exercise all six doctrines, the first advanced
-// doctrine cycle, four boss finales, and land exactly where Veteran I begins.
-// The next state must be B13 / wave 37.
+// Eighteen complete stages now exercise the full Veteran I loop, its B15/B18
+// boss finales, repeated tactical supplies after permanent upgrades cap out,
+// and land exactly where Veteran II begins: B19 / wave 55.
 const longRun = await call('snapshot');
 assert(
-  longRun.stage === 13 && longRun.wave === 37 && longRun.waveInStage === 1,
-  '36-wave lifecycle did not land at stage 13 wave 1',
+  longRun.stage === 19 && longRun.wave === 55 && longRun.waveInStage === 1,
+  '54-wave lifecycle did not land at stage 19 wave 1',
   longRun
 );
 assert(
   longRun.doctrine?.id === 'broken-line' &&
   longRun.doctrine.advanced &&
-  longRun.doctrine.cycle >= 2,
-  'Stage 13 did not retain advanced KIRIK HAT doctrine after the repeat cycle',
+  longRun.doctrine.cycle >= 3,
+  'Stage 19 did not retain advanced KIRIK HAT doctrine',
   longRun
 );
 assert(
-  longRun.veteran?.tier === 1 &&
-  longRun.veteran.label === 'VETERAN I' &&
-  longRun.veteran.spawnInterval === 0.37,
-  'Stage 13 did not enter Veteran I pressure',
+  longRun.veteran?.tier === 2 &&
+  longRun.veteran.label === 'VETERAN II' &&
+  longRun.veteran.spawnInterval === 0.34,
+  'Stage 19 did not enter Veteran II pressure',
   longRun
 );
 assert(
   longRun.maxActiveEnemies === 4,
   'Veteran pressure changed the four-enemy active cap',
   longRun
+);
+assert(
+  Boolean(longRun.stageSupply),
+  'Late-game lifecycle reached B19 without an active tactical supply',
+  longRun
+);
+assert(
+  Object.values(longRun.upgradeLevels).reduce((sum, value) => sum + value, 0) === 13,
+  'Permanent upgrade caps were not fully reached before late-game supply loop',
+  longRun.upgradeLevels
 );
 assert(longRun.running && !longRun.gameOver, 'Long run ended unexpectedly', longRun);
 assert(longRun.activePlayers >= 1, 'Long run lost all players unexpectedly', longRun);
@@ -197,7 +207,7 @@ if (runtimeErrors.length) {
 
 console.log('PASS long-run lifecycle', {
   wavesCompleted: TOTAL_WAVES,
-  stagesCompleted: 12,
+  stagesCompleted: 18,
   nextState: { stage: longRun.stage, wave: longRun.wave, waveInStage: longRun.waveInStage },
   finalScoreBeforeRestart: lastScore,
   transientCleanup: 'ok',
