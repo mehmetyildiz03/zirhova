@@ -25,6 +25,7 @@ jobs:
           node --check src/bossSystem.js
           node --check src/audioSystem.js
           node --check src/progressionSystem.js
+          node --check src/runSystem.js
       - name: Validate web manifest JSON
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest ok')"
       - name: Validate level data
@@ -47,6 +48,8 @@ jobs:
         run: node scripts/validate-audio.mjs
       - name: Validate progression profile
         run: node scripts/validate-progression.mjs
+      - name: Validate run/checkpoint model
+        run: node scripts/validate-run-system.mjs
       - name: Verify required PWA files
         run: |
           test -f index.html
@@ -62,6 +65,7 @@ jobs:
           test -f src/bossSystem.js
           test -f src/audioSystem.js
           test -f src/progressionSystem.js
+          test -f src/runSystem.js
           test -f editor.html
           test -f editor.css
           test -f icons/icon-192.png
@@ -83,6 +87,7 @@ jobs:
           node scripts/boss-smoke.mjs
           node scripts/audio-smoke.mjs
           node scripts/profile-smoke.mjs
+          node scripts/continue-stage-smoke.mjs
           node scripts/long-run-smoke.mjs
           node scripts/performance-stress-smoke.mjs
           node scripts/mobile-touch-smoke.mjs
