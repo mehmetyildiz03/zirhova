@@ -7,6 +7,7 @@ import { NAV_STEP, isNavAlignedStart, navStartCandidates } from './navigationSys
 import { waveEnemyCount, buildEnemyRoster, carrierIndexForWave, shouldDropArsenal } from './balanceSystem.js';
 import { stageDoctrine, doctrineSpawnPlan } from './stageDoctrineSystem.js';
 import { stageEnvironment, environmentBarrierState, terrainSpeedMultiplier, terrainPathCost } from './environmentSystem.js';
+import { MAX_STAGE_LIVES, stageSupplyById, normalizeStageSupplyId, stageSupplyChoices } from './supplySystem.js';
 import { BOSS_TYPE, SECOND_BOSS_TYPE, isBossWave, bossTypeForStage, bossName, bossStats, bossPhase, bossDamageResult, pincerVolleyDirections, bossAbilityCooldown, pincerVolleyWindup } from './bossSystem.js';
 import { createAudioSystem } from './audioSystem.js';
 import { PROFILE_STORAGE_KEY, LEGACY_PROGRESS_KEY, ACHIEVEMENTS, TANK_SKINS, migrateProfile, applyProfileEvent, selectSkin, skinById, unlockedSkinIds, achievementById } from './progressionSystem.js';
@@ -68,6 +69,7 @@ const ROWS = 16;
 const WORLD = TILE * COLS;
 const WAVES_PER_STAGE = 3;
 const MAX_BASE_HP = 5;
+const MAX_LIVES = MAX_STAGE_LIVES;
 const TANK_SIZE = 34;
 const MAX_MOVE_STEP = 5;
 const TURN_ASSIST_MAX = 12;
@@ -306,7 +308,7 @@ const UPGRADES = [
     title: 'SAHA ONARIMI',
     description: 'Üs +2 can yeniler',
     repeatable: true,
-    available() { return state.base && state.base.hp < MAX_BASE_HP; },
+    available() { return state.base && state.base.hp < MAX_BASE_HP - 1; },
     apply() { state.base.hp = Math.min(MAX_BASE_HP, state.base.hp + 2); },
   },
   {
@@ -314,7 +316,8 @@ const UPGRADES = [
     title: 'YEDEK MÜRETTEBAT',
     description: '+1 yedek tank',
     repeatable: true,
-    apply() { state.lives = Math.min(6, state.lives + 1); },
+    available() { return state.lives < MAX_LIVES; },
+    apply() { state.lives = Math.min(MAX_LIVES, state.lives + 1); },
   },
 ];
 
@@ -1370,6 +1373,7 @@ function writeCampaignCheckpoint() {
     arsenalMisses: state.arsenalMisses,
     runEnemiesDefeated: state.runEnemiesDefeated,
     runBossesDefeated: state.runBossesDefeated,
+    stageSupply: state.stageSupply,
     modifiers: state.modifiers,
     upgradeLevels: state.upgradeLevels,
     coop: state.coop,
@@ -1543,6 +1547,7 @@ const state = {
   runUnlockedAchievements: [],
   runUnlockedSkins: [],
   environmentBarrier: null,
+  stageSupply: null,
 };
 
 function currentLevel() {
@@ -1823,6 +1828,7 @@ function resetGame(coopMode = state.coop, options = {}) {
     runUnlockedAchievements: [],
     runUnlockedSkins: [],
     environmentBarrier: null,
+    stageSupply: normalizeStageSupplyId(source.stageSupply),
   });
 
   document.body.classList.remove('menu-open');
@@ -1873,6 +1879,7 @@ function loadStage({
   state.spawnClock = 0;
   state.spawnBlockedFor = 0;
   state.enemyFreeze = 0;
+  state.baseShield = 0;
   state.waveTimer = 0;
   state.pendingRespawns = [];
   state.respawnClock = 0;
@@ -1897,6 +1904,8 @@ function loadStage({
     }
   }
 
+  const activeSupply = applyActiveStageSupply();
+
   if (announce) {
     const doctrine = currentStageDoctrine();
     const environment = currentStageEnvironment();
@@ -1913,6 +1922,9 @@ function loadStage({
     );
   }
   spawnWave();
+  if (announce && activeSupply) {
+    showNotice(`İKMAL · ${activeSupply.shortLabel}`, 1.05);
+  }
   syncUI();
 }
 
@@ -2075,27 +2087,69 @@ function advanceWaveIfNeeded(dt) {
   syncUI();
 }
 
+function permanentUpgradesComplete() {
+  return UPGRADES
+    .filter(upgrade => !upgrade.repeatable)
+    .every(upgrade => (state.upgradeLevels[upgrade.id] || 0) >= upgrade.max);
+}
+
+function nextStageBaseHpWithoutSupply() {
+  if (!state.base) return MAX_BASE_HP;
+  return Math.min(MAX_BASE_HP, state.base.hp + 1);
+}
+
+function applyActiveStageSupply() {
+  const supply = stageSupplyById(state.stageSupply);
+  if (!supply) return null;
+
+  if (supply.effect === 'fortify') {
+    state.baseShield = Math.max(state.baseShield, 14);
+  } else if (supply.effect === 'emp') {
+    state.enemyFreeze = Math.max(state.enemyFreeze, 5);
+  } else if (supply.effect === 'armor') {
+    for (const player of activePlayers()) {
+      player.spawnShield = Math.max(player.spawnShield, 8);
+    }
+  } else if (supply.effect === 'repair') {
+    if (state.base) state.base.hp = Math.min(MAX_BASE_HP, state.base.hp + 2);
+  } else if (supply.effect === 'reserve') {
+    state.lives = Math.min(MAX_LIVES, state.lives + 1);
+  }
+
+  return supply;
+}
+
 function showUpgradeSelection() {
   state.awaitingUpgrade = true;
   clearAllInput();
 
   const completedStage = state.stage;
-  UI.upgradeTitle.textContent = `BÖLÜM ${completedStage} TAMAMLANDI`;
   UI.upgradeChoices.replaceChildren();
 
   const choices = pickUpgradeChoices(3);
+  const supplyMode = choices.length > 0 && choices.every(choice => choice.kind === 'supply');
+  UI.upgradeTitle.textContent = supplyMode
+    ? `BÖLÜM ${completedStage} TAMAMLANDI · TAKTİK İKMAL`
+    : `BÖLÜM ${completedStage} TAMAMLANDI`;
+
   for (const upgrade of choices) {
     const level = state.upgradeLevels[upgrade.id] || 0;
     const button = document.createElement('button');
     button.className = 'upgrade-card';
     button.type = 'button';
+    button.dataset.choiceId = upgrade.id;
+    button.dataset.choiceKind = upgrade.kind || 'upgrade';
 
     const title = document.createElement('strong');
     title.textContent = upgrade.title;
     const desc = document.createElement('span');
     desc.textContent = upgrade.description;
     const rank = document.createElement('small');
-    rank.textContent = upgrade.repeatable ? 'ANLIK' : `SEVİYE ${level + 1}`;
+    rank.textContent = upgrade.kind === 'supply'
+      ? 'SONRAKİ BÖLÜM'
+      : upgrade.repeatable
+        ? 'ANLIK'
+        : `SEVİYE ${level + 1}`;
 
     button.append(title, desc, rank);
     button.addEventListener('click', () => chooseUpgrade(upgrade));
@@ -2109,6 +2163,20 @@ function showUpgradeSelection() {
 }
 
 function pickUpgradeChoices(count) {
+  if (permanentUpgradesComplete()) {
+    return stageSupplyChoices({
+      baseHp: nextStageBaseHpWithoutSupply(),
+      maxBaseHp: MAX_BASE_HP,
+      lives: state.lives,
+      maxLives: MAX_LIVES,
+      count,
+    }).map(supply => ({
+      ...supply,
+      kind: 'supply',
+      repeatable: true,
+    }));
+  }
+
   const available = UPGRADES.filter(upgrade => {
     if (upgrade.available && !upgrade.available()) return false;
     if (upgrade.repeatable) return true;
@@ -2136,9 +2204,14 @@ function chooseUpgrade(upgrade) {
     });
   }
 
-  upgrade.apply();
-  if (!upgrade.repeatable) {
-    state.upgradeLevels[upgrade.id] = (state.upgradeLevels[upgrade.id] || 0) + 1;
+  if (upgrade.kind === 'supply') {
+    state.stageSupply = normalizeStageSupplyId(upgrade.id);
+  } else {
+    state.stageSupply = null;
+    upgrade.apply();
+    if (!upgrade.repeatable) {
+      state.upgradeLevels[upgrade.id] = (state.upgradeLevels[upgrade.id] || 0) + 1;
+    }
   }
 
   UI.upgrade.classList.remove('show');
@@ -3649,6 +3722,12 @@ if (window.location.hostname === '127.0.0.1') {
         barrierCells: environment.barrierCells.map(cell => [...cell]),
       } : null;
     })(),
+    stageSupply: state.stageSupply,
+    activeStageSupply: stageSupplyById(state.stageSupply)
+      ? { ...stageSupplyById(state.stageSupply) }
+      : null,
+    enemyFreeze: state.enemyFreeze,
+    baseShield: state.baseShield,
     environmentBarrier: state.environmentBarrier ? {
       ...state.environmentBarrier,
       barrierCells: state.environmentBarrier.barrierCells.map(cell => [...cell]),
@@ -3729,6 +3808,7 @@ if (window.location.hostname === '127.0.0.1') {
       navX: isNavAlignedStart(state.player.x, state.player.w, WORLD),
       navY: isNavAlignedStart(state.player.y, state.player.h, WORLD),
       dead: state.player.dead,
+      spawnShield: state.player.spawnShield,
     } : null,
     p2: state.player2 ? {
       x: state.player2.x,
@@ -3737,6 +3817,7 @@ if (window.location.hostname === '127.0.0.1') {
       navX: isNavAlignedStart(state.player2.x, state.player2.w, WORLD),
       navY: isNavAlignedStart(state.player2.y, state.player2.h, WORLD),
       dead: state.player2.dead,
+      spawnShield: state.player2.spawnShield,
     } : null,
     navStep: NAV_STEP,
     touchInput: { ...touchInput },
@@ -3915,6 +3996,33 @@ if (window.location.hostname === '127.0.0.1') {
       if (stage !== undefined) state.stage = stage;
       if (wave !== undefined) state.wave = wave;
       if (waveInStage !== undefined) state.waveInStage = waveInStage;
+      return testSnapshot();
+    },
+
+    setUpgradeLevels(patch = {}) {
+      for (const upgrade of UPGRADES.filter(item => !item.repeatable)) {
+        if (patch[upgrade.id] === undefined) continue;
+        state.upgradeLevels[upgrade.id] = Math.max(
+          0,
+          Math.min(upgrade.max, Math.floor(Number(patch[upgrade.id]) || 0))
+        );
+      }
+      return testSnapshot();
+    },
+
+    setResources({ lives, baseHp } = {}) {
+      if (lives !== undefined) {
+        state.lives = Math.max(0, Math.min(MAX_LIVES, Math.floor(Number(lives) || 0)));
+      }
+      if (baseHp !== undefined && state.base) {
+        state.base.hp = Math.max(1, Math.min(MAX_BASE_HP, Math.floor(Number(baseHp) || 1)));
+      }
+      syncUI();
+      return testSnapshot();
+    },
+
+    showUpgradeSelectionForTest() {
+      showUpgradeSelection();
       return testSnapshot();
     },
 

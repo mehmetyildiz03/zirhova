@@ -24,6 +24,7 @@ jobs:
           node --check src/balanceSystem.js
           node --check src/stageDoctrineSystem.js
           node --check src/environmentSystem.js
+          node --check src/supplySystem.js
           node --check src/bossSystem.js
           node --check src/audioSystem.js
           node --check src/progressionSystem.js
@@ -48,6 +49,8 @@ jobs:
         run: node scripts/validate-stage-doctrines.mjs
       - name: Validate environment mechanics
         run: node scripts/validate-environment.mjs
+      - name: Validate stage supplies
+        run: node scripts/validate-supply.mjs
       - name: Validate boss mechanics
         run: node scripts/validate-boss.mjs
       - name: Validate audio recipes
@@ -70,6 +73,7 @@ jobs:
           test -f src/balanceSystem.js
           test -f src/stageDoctrineSystem.js
           test -f src/environmentSystem.js
+          test -f src/supplySystem.js
           test -f src/bossSystem.js
           test -f src/audioSystem.js
           test -f src/progressionSystem.js
@@ -90,6 +94,7 @@ jobs:
           node scripts/entry-menu-smoke.mjs
           node scripts/stage-doctrine-smoke.mjs
           node scripts/environment-smoke.mjs
+          node scripts/supply-smoke.mjs
           node scripts/responsive-smoke.mjs
           node scripts/gameplay-smoke.mjs
           node scripts/navigation-smoke.mjs

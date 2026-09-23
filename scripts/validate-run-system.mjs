@@ -49,6 +49,7 @@ const checkpoint = createCheckpoint({
   coop: false,
   runEnemiesDefeated: 27,
   runBossesDefeated: 1,
+  stageSupply: 'emp',
   modifiers: {
     speed: 1.21,
     fireRate: 0.74,
@@ -71,6 +72,7 @@ assert(checkpoint.baseHp === 3 && checkpoint.lives === 2, 'Checkpoint health/liv
 assert(checkpoint.weaponTier === 3, 'Checkpoint weapon tier was not preserved', checkpoint);
 assert(checkpoint.runEnemiesDefeated === 27, 'Checkpoint run kill count was not preserved', checkpoint);
 assert(checkpoint.runBossesDefeated === 1, 'Checkpoint run boss count was not preserved', checkpoint);
+assert(checkpoint.stageSupply === 'emp', 'Checkpoint stage supply was not preserved', checkpoint);
 
 const normalized = normalizeCheckpoint(checkpoint, 4);
 assert(normalized?.stage === 4 && normalized.wave === 10, 'Valid checkpoint rejected', normalized);
@@ -79,9 +81,11 @@ assert(normalizeCheckpoint(checkpoint, 3) === null, 'Checkpoint beyond unlocked 
 const legacyShape = { ...checkpoint };
 delete legacyShape.runEnemiesDefeated;
 delete legacyShape.runBossesDefeated;
+delete legacyShape.stageSupply;
 const normalizedLegacyShape = normalizeCheckpoint(legacyShape, 4);
 assert(normalizedLegacyShape?.runEnemiesDefeated === 0, 'Older v1 checkpoint kill count must migrate to zero', normalizedLegacyShape);
 assert(normalizedLegacyShape?.runBossesDefeated === 0, 'Older v1 checkpoint boss count must migrate to zero', normalizedLegacyShape);
+assert(normalizedLegacyShape?.stageSupply === null, 'Older v1 checkpoint supply must migrate to null', normalizedLegacyShape);
 
 const badWave = { ...checkpoint, wave: 11 };
 assert(normalizeCheckpoint(badWave, 4) === null, 'Mid-stage checkpoint must be rejected');

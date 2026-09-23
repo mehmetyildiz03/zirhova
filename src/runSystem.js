@@ -1,3 +1,5 @@
+import { normalizeStageSupplyId } from './supplySystem.js';
+
 export const CHECKPOINT_STORAGE_KEY = 'zirhova-campaign-checkpoint-v1';
 export const CHECKPOINT_VERSION = 1;
 export const MAX_SELECTABLE_STAGE = 99;
@@ -75,6 +77,7 @@ export function deploymentLoadout(stage, coop = false) {
     coop: Boolean(coop),
     runEnemiesDefeated: 0,
     runBossesDefeated: 0,
+    stageSupply: null,
     runClass: safeStage === 1 ? 'campaign' : 'deployment',
     runStartStage: safeStage,
   };
@@ -98,6 +101,7 @@ export function createCheckpoint(source = {}) {
     coop: Boolean(source.coop),
     runEnemiesDefeated: finiteInt(source.runEnemiesDefeated, 0),
     runBossesDefeated: finiteInt(source.runBossesDefeated, 0),
+    stageSupply: normalizeStageSupplyId(source.stageSupply),
     modifiers: {
       speed: finiteNumber(source.modifiers?.speed, 1, 0.7, 2),
       fireRate: finiteNumber(source.modifiers?.fireRate, 1, 0.35, 1.3),
