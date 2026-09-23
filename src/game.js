@@ -2804,6 +2804,19 @@ syncUI();
 if (window.location.hostname === '127.0.0.1') {
   const testSnapshot = () => ({
     coop: state.coop,
+    profile: {
+      bestScore: progress.bestScore,
+      bestStage: progress.bestStage,
+      runs: progress.runs,
+      coopRuns: progress.coopRuns,
+      enemiesDefeated: progress.enemiesDefeated,
+      bossesDefeated: progress.bossesDefeated,
+      stagesCompleted: progress.stagesCompleted,
+      highestWeaponTier: progress.highestWeaponTier,
+      achievementIds: [...progress.achievementIds],
+      selectedSkin: progress.selectedSkin,
+      unlockedSkins: unlockedSkinIds(progress),
+    },
     running: state.running,
     gameOver: state.gameOver,
     awaitingUpgrade: state.awaitingUpgrade,
