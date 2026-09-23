@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.12-profile-progression';
+const CACHE = 'zirhova-v0.13-continue-stage-records';
 const ASSETS = [
   './',
   './index.html',
@@ -14,6 +14,7 @@ const ASSETS = [
   './src/bossSystem.js',
   './src/audioSystem.js',
   './src/progressionSystem.js',
+  './src/runSystem.js',
   './src/editor.js',
   './editor.css',
   './editor.html',
