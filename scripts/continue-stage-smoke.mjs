@@ -75,7 +75,9 @@ let snap = await call('snapshot');
 assert(snap.runClass === 'deployment', 'B4 select did not create deployment run', snap);
 assert(snap.runStartStage === 4 && snap.stage === 4, 'B4 deployment started at wrong stage', snap);
 assert(snap.wave === 10 && snap.waveInStage === 1, 'B4 deployment absolute wave is wrong', snap);
-assert(snap.weaponTier === 'II' || snap.weaponTier === undefined, 'Unexpected diagnostic weapon tier representation', snap);
+assert(snap.weaponTier === 2, 'B4 deployment did not start with weapon tier II', snap);
+const deploymentUpgradeCount = Object.values(snap.upgradeLevels).reduce((sum, value) => sum + value, 0);
+assert(deploymentUpgradeCount === 3, 'B4 deployment did not receive three prior-stage equivalent upgrades', snap);
 assert(snap.score === 0, 'Deployment did not start from zero score', snap);
 assert(snap.checkpoint === null, 'Deployment unexpectedly created/overwrote campaign checkpoint', snap);
 
