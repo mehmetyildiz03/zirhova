@@ -43,6 +43,8 @@
           <div class="panel-actions">
             <button id="startBtn">1 OYUNCU</button>
             <button id="coopBtn" class="secondary">2 OYUNCU</button>
+            <button id="continueBtn" class="secondary" hidden>DEVAM</button>
+            <button id="stageSelectBtn" class="secondary" hidden>BÖLÜM SEÇ</button>
             <button id="profileBtn" class="secondary">PROFİL</button>
             <button id="installBtn" class="secondary" hidden>TELEFONA YÜKLE</button>
           </div>
@@ -85,7 +87,7 @@
         <div class="panel profile-panel">
           <div class="kicker">KALICI PROFİL</div>
           <h2>Komuta Kaydı</h2>
-          <p class="profile-intro">Rekorların, başarıların ve açtığın kozmetik tank boyaları bu cihazda saklanır. Boyalar yalnız görünümü değiştirir.</p>
+          <p class="profile-intro">Tam koşu ve serbest konuşlanma rekorların ayrı tutulur. Başarılar ve kozmetik tank boyaları bu cihazda saklanır; boyalar oynanış gücü vermez.</p>
 
           <div class="profile-stats" id="profileStats"></div>
 
@@ -100,6 +102,21 @@
           </section>
 
           <button id="profileCloseBtn" type="button">KAPAT</button>
+        </div>
+      </div>
+
+      <div class="overlay" id="stageSelectOverlay">
+        <div class="panel stage-select-panel">
+          <div class="kicker">KONUŞLANMA NOKTASI</div>
+          <h2>Bölüm seç</h2>
+          <p>B1 tam koşu rekoruna dahildir. B2 ve sonrası standart teçhizatla başlar ve ayrı serbest konuşlanma rekoruna yazılır.</p>
+          <div class="stage-mode-row">
+            <button id="stageSelectSoloBtn" type="button" class="secondary selected">1 OYUNCU</button>
+            <button id="stageSelectCoopBtn" type="button" class="secondary">2 OYUNCU</button>
+          </div>
+          <p id="stageSelectModeText" class="stage-mode-text">1 OYUNCU · SERBEST KONUŞLANMA</p>
+          <div class="stage-select-grid" id="stageSelectGrid"></div>
+          <button id="stageSelectCloseBtn" type="button">KAPAT</button>
         </div>
       </div>
     </section>
@@ -121,7 +138,7 @@
     </section>
 
     <footer class="footer-note">
-      <span>v0.12 — profil / başarı / kozmetik</span>
+      <span>v0.13 — devam / bölüm seç / rekorlar</span>
       <span id="bestRun">En iyi: B1 · 0 puan</span>
       <a class="editor-link" href="./editor.html">HARİTA EDİTÖRÜ</a>
     </footer>
