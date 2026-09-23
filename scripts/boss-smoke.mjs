@@ -130,7 +130,8 @@ hit = await call('hitEnemy', 0, 2, {
 boss = hit.snapshot.enemyStates[0];
 assert(!hit.result?.blocked && boss.hp === 5, 'KISKAÇ incorrectly inherited frontal armor', hit);
 
-snap = await call('stepEnemyUpdates', 0.01);
+// Let the standard 80 ms post-hit shield expire before expecting a boss ability.
+snap = await call('stepEnemyUpdates', 0.09);
 boss = snap.enemyStates[0];
 assert(snap.bulletStates.length === 3, 'KISKAÇ phase 1 did not fire a three-way salvo', snap.bulletStates);
 assert(new Set(snap.bulletStates.map(b => `${b.dx},${b.dy}`)).size === 3, 'KISKAÇ phase-1 salvo directions are not distinct', snap.bulletStates);
@@ -145,7 +146,7 @@ hit = await call('hitEnemy', 0, 2, {
 boss = hit.snapshot.enemyStates[0];
 assert(boss.hp === 3, 'KISKAÇ did not reach phase threshold HP', boss);
 
-snap = await call('stepEnemyUpdates', 0.01);
+snap = await call('stepEnemyUpdates', 0.09);
 boss = snap.enemyStates[0];
 assert(boss.bossPhase === 2, 'KISKAÇ did not enter phase 2 at half HP', boss);
 
