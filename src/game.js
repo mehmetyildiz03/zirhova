@@ -8,6 +8,7 @@ import { waveEnemyCount, buildEnemyRoster, carrierIndexForWave, shouldDropArsena
 import { BOSS_TYPE, isBossWave, bossStats, bossPhase, bossDamageResult } from './bossSystem.js';
 import { createAudioSystem } from './audioSystem.js';
 import { PROFILE_STORAGE_KEY, LEGACY_PROGRESS_KEY, ACHIEVEMENTS, TANK_SKINS, migrateProfile, applyProfileEvent, selectSkin, skinById, unlockedSkinIds, achievementById } from './progressionSystem.js';
+import { CHECKPOINT_STORAGE_KEY, deploymentLoadout, createCheckpoint, normalizeCheckpoint, selectableStages, runRecordLabel } from './runSystem.js';
 
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
@@ -41,6 +42,14 @@ const UI = {
   profileStats: document.querySelector('#profileStats'),
   profileSkins: document.querySelector('#profileSkins'),
   profileAchievements: document.querySelector('#profileAchievements'),
+  continueBtn: document.querySelector('#continueBtn'),
+  stageSelectBtn: document.querySelector('#stageSelectBtn'),
+  stageSelect: document.querySelector('#stageSelectOverlay'),
+  stageSelectGrid: document.querySelector('#stageSelectGrid'),
+  stageSelectCloseBtn: document.querySelector('#stageSelectCloseBtn'),
+  stageSelectSoloBtn: document.querySelector('#stageSelectSoloBtn'),
+  stageSelectCoopBtn: document.querySelector('#stageSelectCoopBtn'),
+  stageSelectModeText: document.querySelector('#stageSelectModeText'),
 };
 
 const TILE = 48;
@@ -1141,6 +1150,8 @@ const state = {
   player2Spawn: null,
   pendingRespawns: [],
   respawnClock: 0,
+  runClass: 'campaign',
+  runStartStage: 1,
 };
 
 function currentLevel() {
