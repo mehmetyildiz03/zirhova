@@ -1,4 +1,5 @@
 export const BOSS_TYPE = 'bastion';
+export const SECOND_BOSS_TYPE = 'pincer';
 
 export function isBossWave(stage, waveInStage) {
   const s = Math.max(1, Math.floor(Number(stage) || 1));
@@ -11,8 +12,33 @@ export function bossTier(stage) {
   return Math.max(1, Math.floor(s / 3));
 }
 
-export function bossStats(stage) {
-  const tier = bossTier(stage);
+export function bossTypeForStage(stage) {
+  const encounter = bossTier(stage);
+  return encounter % 2 === 0 ? SECOND_BOSS_TYPE : BOSS_TYPE;
+}
+
+export function bossName(type) {
+  return type === SECOND_BOSS_TYPE ? 'KISKAÇ' : 'BURÇKIRAN';
+}
+
+function variantTier(stage) {
+  return Math.max(1, Math.ceil(bossTier(stage) / 2));
+}
+
+export function bossStats(stage, type = bossTypeForStage(stage)) {
+  const tier = variantTier(stage);
+
+  if (type === SECOND_BOSS_TYPE) {
+    return {
+      hp: Math.min(11, 7 + (tier - 1) * 2),
+      speed: Math.min(128, 112 + (tier - 1) * 5),
+      phase2Speed: Math.min(148, 136 + (tier - 1) * 4),
+      fireBase: Math.max(0.54, 0.68 - (tier - 1) * 0.04),
+      phase2FireBase: Math.max(0.38, 0.47 - (tier - 1) * 0.03),
+      score: 1250 + (tier - 1) * 400,
+    };
+  }
+
   return {
     hp: Math.min(14, 8 + (tier - 1) * 2),
     speed: Math.min(82, 66 + (tier - 1) * 4),
@@ -60,4 +86,35 @@ export function bossDamageResult({
     blocked,
     damage: blocked ? 0 : incoming,
   };
+}
+
+const FLANK_DIRS = Object.freeze({
+  up: ['left', 'right'],
+  right: ['up', 'down'],
+  down: ['right', 'left'],
+  left: ['down', 'up'],
+});
+
+const OPPOSITE_DIR = Object.freeze({
+  up: 'down',
+  down: 'up',
+  left: 'right',
+  right: 'left',
+});
+
+export function pincerVolleyDirections(facing = 'down', phase = 1) {
+  const primary = FLANK_DIRS[facing] ? facing : 'down';
+  const flanks = FLANK_DIRS[primary];
+  const dirs = [primary, ...flanks];
+  if (Number(phase) >= 2) dirs.push(OPPOSITE_DIR[primary]);
+  return dirs;
+}
+
+export function bossAbilityCooldown(stage, type, phase = 1) {
+  if (type !== SECOND_BOSS_TYPE) return Infinity;
+  const tier = variantTier(stage);
+  if (Number(phase) >= 2) {
+    return Math.max(1.25, 1.75 - (tier - 1) * 0.10);
+  }
+  return Math.max(1.90, 2.55 - (tier - 1) * 0.12);
 }

@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.15-full-stage-doctrines';
+const CACHE = 'zirhova-v0.16-pincer-boss';
 const ASSETS = [
   './',
   './index.html',

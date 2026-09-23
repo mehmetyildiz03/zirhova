@@ -6,7 +6,7 @@ import { freshActions, mergeActions, readGamepadActions, pickDirection } from '.
 import { NAV_STEP, isNavAlignedStart, navStartCandidates } from './navigationSystem.js';
 import { waveEnemyCount, buildEnemyRoster, carrierIndexForWave, shouldDropArsenal } from './balanceSystem.js';
 import { stageDoctrine, doctrineSpawnPlan } from './stageDoctrineSystem.js';
-import { BOSS_TYPE, isBossWave, bossStats, bossPhase, bossDamageResult } from './bossSystem.js';
+import { BOSS_TYPE, SECOND_BOSS_TYPE, isBossWave, bossTypeForStage, bossName, bossStats, bossPhase, bossDamageResult, pincerVolleyDirections, bossAbilityCooldown } from './bossSystem.js';
 import { createAudioSystem } from './audioSystem.js';
 import { PROFILE_STORAGE_KEY, LEGACY_PROGRESS_KEY, ACHIEVEMENTS, TANK_SKINS, migrateProfile, applyProfileEvent, selectSkin, skinById, unlockedSkinIds, achievementById } from './progressionSystem.js';
 import { CHECKPOINT_STORAGE_KEY, deploymentLoadout, createCheckpoint, normalizeCheckpoint, selectableStages, runRecordLabel } from './runSystem.js';
@@ -182,6 +182,26 @@ const ENEMY_TYPES = {
     strongShot: true,
     boss: true,
     frontalArmor: true,
+    bossAccent: '#d6b85f',
+  },
+  pincer: {
+    name: 'KISKAÇ',
+    speed: 112,
+    hp: 7,
+    color: '#54c6c1',
+    dark: '#245b63',
+    target: 'player',
+    brickCost: 6.5,
+    fireBase: 0.68,
+    phase2Speed: 136,
+    phase2FireBase: 0.47,
+    score: 1250,
+    mark: 'pincer',
+    strongShot: false,
+    boss: true,
+    frontalArmor: false,
+    bossAccent: '#7ee6dc',
+    volleyBulletSpeed: 360,
   },
 };
 
@@ -316,8 +336,8 @@ class Tank extends RectEntity {
     this.playerSlot = team === 'player' ? playerSlot : 0;
     this.type = type;
     this.spec = team === 'player' ? null : ENEMY_TYPES[type];
-    if (team === 'enemy' && type === BOSS_TYPE) {
-      this.spec = { ...this.spec, ...bossStats(state.stage) };
+    if (team === 'enemy' && this.spec?.boss) {
+      this.spec = { ...this.spec, ...bossStats(state.stage, type) };
     }
     this.dir = team === 'player' ? 'up' : 'down';
     this.speed = team === 'player' ? 162 * state.modifiers.speed : this.spec.speed;
@@ -342,6 +362,7 @@ class Tank extends RectEntity {
     this.hitFlash = 0;
     this.armorFlash = 0;
     this.bossPhase = 1;
+    this.bossAbilityCooldown = type === SECOND_BOSS_TYPE ? 1.6 : Infinity;
     this.recoil = 0;
   }
 
@@ -358,7 +379,10 @@ class Tank extends RectEntity {
       if (nextPhase !== this.bossPhase) {
         this.bossPhase = nextPhase;
         this.speed = nextPhase === 2 ? this.spec.phase2Speed : this.spec.speed;
-        showNotice('BURÇKIRAN · SALDIRI FAZI', 1.0);
+        if (this.type === SECOND_BOSS_TYPE) {
+          this.bossAbilityCooldown = Math.min(this.bossAbilityCooldown, 0.8);
+        }
+        showNotice(`${this.spec.name} · SALDIRI FAZI`, 1.0);
         addShake(4);
         audio.bossAlert(2);
       }
@@ -401,6 +425,10 @@ class Tank extends RectEntity {
     this.rerouteClock = Math.max(0, this.rerouteClock - dt);
     this.directionHoldClock = Math.max(0, this.directionHoldClock - dt);
     this.trafficWaitClock = Math.max(0, this.trafficWaitClock - dt);
+
+    if (this.type === SECOND_BOSS_TYPE) {
+      this.updatePincerAbility(target, dt);
+    }
 
     if (this.trafficYieldClock > 0 && this.trafficYieldDir) {
       this.trafficYieldClock = Math.max(0, this.trafficYieldClock - dt);
@@ -674,6 +702,71 @@ class Tank extends RectEntity {
     return Math.abs(this.x - startX) + Math.abs(this.y - startY) > 0.01;
   }
 
+  fireEnemyBullet(dir, { speed = null, strong = null } = {}) {
+    const d = DIRS[dir];
+    if (!d || this.dead) return false;
+
+    const bulletSpeed = Number.isFinite(speed)
+      ? speed
+      : (this.spec?.strongShot ? 430 : 395);
+    const strongShot = strong === null
+      ? Boolean(this.spec?.strongShot)
+      : Boolean(strong);
+
+    state.bullets.push(
+      new Bullet(
+        this.cx + d.x * 24 - 4,
+        this.cy + d.y * 24 - 4,
+        d.x,
+        d.y,
+        this.team,
+        {
+          damage: 1,
+          speed: bulletSpeed,
+          strong: strongShot,
+          canBreakSteel: false,
+        }
+      )
+    );
+    return true;
+  }
+
+  updatePincerAbility(target, dt) {
+    this.bossAbilityCooldown = Math.max(0, this.bossAbilityCooldown - dt);
+    if (
+      this.bossAbilityCooldown > 0 ||
+      this.spawnShield > 0 ||
+      this.dead ||
+      !target
+    ) return;
+
+    const dx = target.cx - this.cx;
+    const dy = target.cy - this.cy;
+    const primary = Math.abs(dx) > Math.abs(dy)
+      ? (dx >= 0 ? 'right' : 'left')
+      : (dy >= 0 ? 'down' : 'up');
+
+    this.applyAIDirection(primary, 0.18);
+    const directions = pincerVolleyDirections(primary, this.bossPhase);
+    for (const dir of directions) {
+      this.fireEnemyBullet(dir, {
+        speed: this.spec.volleyBulletSpeed,
+        strong: false,
+      });
+    }
+
+    this.fireCooldown = Math.max(this.fireCooldown, 0.42);
+    this.bossAbilityCooldown = bossAbilityCooldown(
+      state.stage,
+      this.type,
+      this.bossPhase
+    );
+    this.muzzleFlash = 0.08;
+    this.recoil = 2.6;
+    addShake(this.bossPhase === 2 ? 1.8 : 1.2);
+    audio.cannon({ boss: true, strong: false });
+  }
+
   shoot() {
     if (this.fireCooldown > 0 || this.dead || state.awaitingUpgrade || state.paused) return;
 
@@ -726,7 +819,12 @@ class Tank extends RectEntity {
   hit(damage = 1, source = null) {
     if (this.spawnShield > 0 || this.dead) return { blocked: true, damage: 0 };
 
-    if (this.team === 'enemy' && this.spec?.boss && source?.team === 'player') {
+    if (
+      this.team === 'enemy' &&
+      this.spec?.boss &&
+      this.spec?.frontalArmor &&
+      source?.team === 'player'
+    ) {
       const result = bossDamageResult({
         facing: this.dir,
         bulletDx: source.dx,
@@ -808,17 +906,33 @@ class Tank extends RectEntity {
     }
 
     if (this.team === 'enemy' && this.spec?.boss) {
-      ctx.strokeStyle = this.armorFlash > 0 ? '#fff4b0' : '#d6b85f';
-      ctx.lineWidth = this.armorFlash > 0 ? 5 : 3;
-      ctx.beginPath();
-      ctx.moveTo(12, -14);
-      ctx.lineTo(19, -14);
-      ctx.lineTo(19, 14);
-      ctx.lineTo(12, 14);
-      ctx.stroke();
+      const accent = this.spec.bossAccent || '#d6b85f';
+
+      if (this.spec.frontalArmor) {
+        ctx.strokeStyle = this.armorFlash > 0 ? '#fff4b0' : accent;
+        ctx.lineWidth = this.armorFlash > 0 ? 5 : 3;
+        ctx.beginPath();
+        ctx.moveTo(12, -14);
+        ctx.lineTo(19, -14);
+        ctx.lineTo(19, 14);
+        ctx.lineTo(12, 14);
+        ctx.stroke();
+      } else if (this.type === SECOND_BOSS_TYPE) {
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-5, -18);
+        ctx.lineTo(8, -18);
+        ctx.moveTo(-5, 18);
+        ctx.lineTo(8, 18);
+        ctx.stroke();
+        ctx.fillStyle = accent;
+        ctx.fillRect(-2, -21, 8, 4);
+        ctx.fillRect(-2, 17, 8, 4);
+      }
 
       if (this.bossPhase === 2) {
-        ctx.strokeStyle = '#ff9a6a';
+        ctx.strokeStyle = this.type === SECOND_BOSS_TYPE ? '#b8fff7' : '#ff9a6a';
         ctx.lineWidth = 2;
         ctx.strokeRect(-15, -14, 30, 28);
       }
@@ -880,6 +994,15 @@ class Tank extends RectEntity {
       ctx.strokeRect(-9, -9, 18, 18);
       ctx.fillRect(-3, -6, 6, 12);
       ctx.fillRect(-6, -3, 12, 6);
+    } else if (this.spec.mark === 'pincer') {
+      ctx.beginPath();
+      ctx.moveTo(-8, -8);
+      ctx.lineTo(-2, 0);
+      ctx.lineTo(-8, 8);
+      ctx.moveTo(8, -8);
+      ctx.lineTo(2, 0);
+      ctx.lineTo(8, 8);
+      ctx.stroke();
     }
   }
 
@@ -1620,12 +1743,13 @@ function spawnWave() {
 
   if (isBossWave(state.stage, state.waveInStage)) {
     const bossSpawn = level.enemySpawns[Math.floor(level.enemySpawns.length / 2)];
+    const bossType = bossTypeForStage(state.stage);
     state.waveSpawnQueue.push({
       spawn: bossSpawn,
-      type: BOSS_TYPE,
+      type: bossType,
       carrier: false,
     });
-    showNotice('ÖZEL HEDEF · BURÇKIRAN', 1.25);
+    showNotice(`ÖZEL HEDEF · ${bossName(bossType)}`, 1.25);
     audio.bossAlert(1);
   }
   state.pendingSpawns = state.waveSpawnQueue.length;
@@ -2029,7 +2153,7 @@ function handleDeaths() {
       heavy: enemy.type === 'heavy',
     });
     if (enemy.spec?.boss) {
-      showNotice('BURÇKIRAN İMHA EDİLDİ', 1.2);
+      showNotice(`${enemy.spec.name} İMHA EDİLDİ`, 1.2);
     }
     syncUI();
   }
@@ -3295,9 +3419,17 @@ if (window.location.hostname === '127.0.0.1') {
         maxHp: enemy.maxHp,
         boss: Boolean(enemy.spec?.boss),
         bossPhase: enemy.bossPhase,
+        bossAbilityCooldown: enemy.bossAbilityCooldown,
         armorFlash: enemy.armorFlash,
       })),
     queuedEnemyTypes: state.waveSpawnQueue.map(entry => entry.type),
+    bulletStates: state.bullets.map(bullet => ({
+      dx: bullet.dx,
+      dy: bullet.dy,
+      team: bullet.team,
+      strong: bullet.strong,
+      speed: bullet.speed,
+    })),
     p1: state.player ? {
       x: state.player.x,
       y: state.player.y,
