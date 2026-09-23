@@ -50,11 +50,37 @@ async function startStage(stage) {
 }
 
 await page.click('#stageSelectBtn');
+const b4Card = await page.locator('[data-stage="4"]').innerText();
 const b5Card = await page.locator('[data-stage="5"]').innerText();
+const b10Card = await page.locator('[data-stage="10"]').innerText();
 const b11Card = await page.locator('[data-stage="11"]').innerText();
+assert(b4Card.includes('TAKTİK BARİYER'), 'B4 stage card does not announce tactical barriers', b4Card);
 assert(b5Card.includes('ÇAMUR HATTI'), 'B5 stage card does not announce mud environment', b5Card);
+assert(b10Card.includes('KİLİTLİ KAVŞAK'), 'B10 stage card does not announce advanced barriers', b10Card);
 assert(b11Card.includes('DERİN ÇAMUR'), 'B11 stage card does not announce advanced mud environment', b11Card);
 await page.click('#stageSelectCloseBtn');
+
+const b4 = await startStage(4);
+assert(b4.environment?.id === 'steel-gates', 'B4 runtime barrier environment mismatch', b4.environment);
+assert(b4.environmentBarrier?.label === 'SOL KİLİT', 'B4 wave 1 did not close the left gate', b4.environmentBarrier);
+assert(b4.terrainCounts.barrier === 1, 'B4 wave 1 barrier count mismatch', b4.terrainCounts);
+
+await call('setLifecycle', { wave: 11, waveInStage: 2 });
+let gateSnap = await call('spawnWaveForTest');
+assert(gateSnap.environmentBarrier?.label === 'SAĞ KİLİT', 'B4 wave 2 did not swap gates', gateSnap.environmentBarrier);
+assert(gateSnap.terrainCounts.barrier === 1, 'B4 wave 2 barrier count mismatch', gateSnap.terrainCounts);
+
+await call('setLifecycle', { wave: 12, waveInStage: 3 });
+gateSnap = await call('spawnWaveForTest');
+assert(gateSnap.environmentBarrier?.label === 'KAVŞAK AÇIK', 'B4 wave 3 should open the crossing', gateSnap.environmentBarrier);
+assert(!gateSnap.terrainCounts.barrier, 'B4 wave 3 retained a barrier', gateSnap.terrainCounts);
+
+const b10 = await startStage(10);
+assert(b10.environment?.advanced && b10.environment.label === 'KİLİTLİ KAVŞAK', 'B10 advanced barrier environment mismatch', b10.environment);
+await call('setLifecycle', { wave: 30, waveInStage: 3 });
+gateSnap = await call('spawnWaveForTest');
+assert(gateSnap.environmentBarrier?.label === 'ÇİFT KİLİT', 'B10 wave 3 did not enter double lock', gateSnap.environmentBarrier);
+assert(gateSnap.terrainCounts.barrier === 2, 'B10 double lock barrier count mismatch', gateSnap.terrainCounts);
 
 const b5 = await startStage(5);
 assert(b5.environment?.id === 'mud-line' && b5.environment.label === 'ÇAMUR HATTI', 'B5 runtime environment mismatch', b5.environment);
@@ -137,9 +163,39 @@ assert(enemyRatio > 0.58 && enemyRatio < 0.66, 'Mud did not apply equally to ene
 
 await call('setTouchForTest', {});
 
+// Safety: a gate never closes underneath a tank.
+await startStage(4);
+const rightGateX = 10 * 48 + 7;
+const rightGateY = 7 * 48 + 7;
+await call('setP1', { x: rightGateX, y: rightGateY, dir: 'up' });
+await call('setLifecycle', { wave: 11, waveInStage: 2 });
+gateSnap = await call('spawnWaveForTest');
+assert(gateSnap.environmentBarrier?.skippedClosedCells.length === 1, 'Occupied gate did not use safe-open behavior', gateSnap.environmentBarrier);
+assert(!gateSnap.terrainCounts.barrier, 'Occupied gate still closed on the player', gateSnap.terrainCounts);
+
+// Terrain collision distinction: mud is passable to bullets, a tactical barrier is not.
+await call('sandbox');
+await call('setTile', 5, 7, 'mud');
+await call('addBullet', { x: 5 * 48 + 20, y: 8 * 48 + 2, dx: 0, dy: -1, speed: 405 });
+let bulletSnap = await call('stepBullets', 0.14);
+assert(bulletSnap.bulletCount === 1, 'Mud incorrectly stopped a projectile', bulletSnap);
+
+await call('sandbox');
+await call('setTile', 5, 7, 'barrier');
+await call('addBullet', { x: 5 * 48 + 20, y: 8 * 48 + 2, dx: 0, dy: -1, speed: 405 });
+bulletSnap = await call('stepBullets', 0.14);
+assert(bulletSnap.bulletCount === 0, 'Tactical barrier failed to stop a projectile', bulletSnap);
+
 assert(errors.length === 0, 'Environment runtime errors', errors);
 
 console.log('PASS environment integration', {
+  b4BarrierWave1: 'SOL KİLİT',
+  b4BarrierWave2: 'SAĞ KİLİT',
+  b4BarrierWave3: 'KAVŞAK AÇIK',
+  b10FinalWave: 'ÇİFT KİLİT',
+  safeClose: 'ok',
+  mudBulletPassThrough: 'ok',
+  barrierBulletBlock: 'ok',
   b5MudTiles: b5.terrainCounts.mud,
   b11MudTiles: b11.terrainCounts.mud,
   playerSpeedRatio: Number(playerRatio.toFixed(3)),

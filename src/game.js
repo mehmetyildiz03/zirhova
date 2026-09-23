@@ -6,7 +6,7 @@ import { freshActions, mergeActions, readGamepadActions, pickDirection } from '.
 import { NAV_STEP, isNavAlignedStart, navStartCandidates } from './navigationSystem.js';
 import { waveEnemyCount, buildEnemyRoster, carrierIndexForWave, shouldDropArsenal } from './balanceSystem.js';
 import { stageDoctrine, doctrineSpawnPlan } from './stageDoctrineSystem.js';
-import { stageEnvironment, terrainSpeedMultiplier, terrainPathCost } from './environmentSystem.js';
+import { stageEnvironment, environmentBarrierState, terrainSpeedMultiplier, terrainPathCost } from './environmentSystem.js';
 import { BOSS_TYPE, SECOND_BOSS_TYPE, isBossWave, bossTypeForStage, bossName, bossStats, bossPhase, bossDamageResult, pincerVolleyDirections, bossAbilityCooldown, pincerVolleyWindup } from './bossSystem.js';
 import { createAudioSystem } from './audioSystem.js';
 import { PROFILE_STORAGE_KEY, LEGACY_PROGRESS_KEY, ACHIEVEMENTS, TANK_SKINS, migrateProfile, applyProfileEvent, selectSkin, skinById, unlockedSkinIds, achievementById } from './progressionSystem.js';
@@ -96,6 +96,9 @@ const COLORS = {
   mud: '#554332',
   mudDark: '#342a22',
   mudLight: '#7a6247',
+  barrier: '#4f5964',
+  barrierDark: '#242c34',
+  barrierWarn: '#e3b95d',
   brush: '#234f39',
   brushLight: '#397255',
   player: '#e8d35b',
@@ -1133,7 +1136,7 @@ class Bullet extends RectEntity {
         brickContainsPoint(tile.mask, localX, localY, TILE);
       const terrainCollision =
         tile &&
-        !['floor', 'water', 'brush', 'ice'].includes(tile.type) &&
+        !['floor', 'water', 'brush', 'ice', 'mud'].includes(tile.type) &&
         (tile.type !== 'brick' || brickCollision);
 
       if (terrainCollision) {
@@ -1539,6 +1542,7 @@ const state = {
   runBossesDefeated: 0,
   runUnlockedAchievements: [],
   runUnlockedSkins: [],
+  environmentBarrier: null,
 };
 
 function currentLevel() {
@@ -1566,6 +1570,82 @@ function applyCurrentStageEnvironment() {
       state.grid[y][x] = makeTile('mud');
     }
   }
+}
+
+function barrierCellOccupied([tx, ty]) {
+  const cell = {
+    x: tx * TILE,
+    y: ty * TILE,
+    w: TILE,
+    h: TILE,
+  };
+  const tanks = [state.player, state.player2, ...state.enemies]
+    .filter(entity => entity && !entity.dead);
+
+  if (tanks.some(entity => rectOverlap(entity.x, entity.y, entity.w, entity.h, cell, 2))) {
+    return true;
+  }
+
+  return Boolean(
+    state.base &&
+    rectOverlap(state.base.x, state.base.y, state.base.w, state.base.h, cell, 2)
+  );
+}
+
+function applyWaveEnvironmentState() {
+  const level = currentLevel();
+  const plan = state.customLevel
+    ? null
+    : environmentBarrierState(
+        level.id,
+        state.stage,
+        state.waveInStage,
+        LEVELS.length
+      );
+
+  if (!plan) {
+    state.environmentBarrier = null;
+    return null;
+  }
+
+  for (const [x, y] of plan.barrierCells) {
+    if (state.grid[y]?.[x]?.type === 'barrier') {
+      state.grid[y][x] = makeTile('floor');
+    }
+  }
+
+  const appliedClosed = [];
+  const skippedClosed = [];
+
+  for (const cell of plan.closedCells) {
+    const [x, y] = cell;
+    if (barrierCellOccupied(cell)) {
+      skippedClosed.push([...cell]);
+      continue;
+    }
+    if (state.grid[y]?.[x]?.type === 'floor') {
+      state.grid[y][x] = makeTile('barrier');
+      appliedClosed.push([...cell]);
+    }
+  }
+
+  state.environmentBarrier = {
+    ...plan,
+    plannedClosedCells: plan.closedCells.map(cell => [...cell]),
+    closedCells: appliedClosed,
+    skippedClosedCells: skippedClosed,
+  };
+
+  if (state.waveInStage > 1) {
+    showNotice(
+      skippedClosed.length
+        ? `BARİYER · ${plan.label} · EMNİYET AÇIK`
+        : `BARİYER · ${plan.label}`,
+      0.9
+    );
+  }
+
+  return state.environmentBarrier;
 }
 
 function activePlayers() {
@@ -1742,6 +1822,7 @@ function resetGame(coopMode = state.coop, options = {}) {
     runBossesDefeated: Math.max(0, Number(source.runBossesDefeated) || 0),
     runUnlockedAchievements: [],
     runUnlockedSkins: [],
+    environmentBarrier: null,
   });
 
   document.body.classList.remove('menu-open');
@@ -1838,6 +1919,7 @@ function loadStage({
 function spawnWave() {
   const level = currentLevel();
   const doctrine = currentStageDoctrine();
+  applyWaveEnvironmentState();
   const count = waveEnemyCount(state.stage, state.waveInStage);
   const roster = buildEnemyRoster({
     stage: state.stage,
@@ -2430,7 +2512,12 @@ function blockingTerrainAhead(entity, dir, distance = 24) {
     return brickContainsPoint(tile.mask, localX, localY, TILE) ? tile : null;
   }
 
-  if (tile.type === 'steel' || tile.type === 'breakableSteel' || tile.type === 'water') {
+  if (
+    tile.type === 'steel' ||
+    tile.type === 'breakableSteel' ||
+    tile.type === 'water' ||
+    tile.type === 'barrier'
+  ) {
     return tile;
   }
 
@@ -2471,7 +2558,10 @@ function clearShot(x1, y1, x2, y2, axis) {
       const localX = ((sampleX % TILE) + TILE) % TILE;
       const localY = ((sampleY % TILE) + TILE) % TILE;
       if (brickContainsPoint(tile.mask, localX, localY, TILE)) return false;
-    } else if (tile && (tile.type === 'steel' || tile.type === 'breakableSteel')) {
+    } else if (
+      tile &&
+      (tile.type === 'steel' || tile.type === 'breakableSteel' || tile.type === 'barrier')
+    ) {
       return false;
     }
   }
@@ -2535,7 +2625,12 @@ function findPathDirection(source, target, brickCost = 4) {
       if (tile.type === 'brick') {
         const fillRatio = countBrickCells(tile.mask) / (BRICK_GRID * BRICK_GRID);
         cost = Math.max(1, brickCost * fillRatio);
-      } else if (tile.type === 'steel' || tile.type === 'breakableSteel' || tile.type === 'water') continue;
+      } else if (
+        tile.type === 'steel' ||
+        tile.type === 'breakableSteel' ||
+        tile.type === 'water' ||
+        tile.type === 'barrier'
+      ) continue;
       else if (tile.type === 'brush') cost = 1.08;
       else if (tile.type === 'ice') cost = 1.04;
       else if (tile.type === 'mud') cost = terrainPathCost(tile.type);
@@ -2729,9 +2824,16 @@ function drawTerrain() {
             }
           }
         }
-      } else if (tile.type === 'steel' || tile.type === 'breakableSteel') {
+      } else if (
+        tile.type === 'steel' ||
+        tile.type === 'breakableSteel' ||
+        tile.type === 'barrier'
+      ) {
         const breakable = tile.type === 'breakableSteel';
-        ctx.fillStyle = breakable ? COLORS.breakableSteel : COLORS.steel;
+        const barrier = tile.type === 'barrier';
+        ctx.fillStyle = barrier
+          ? COLORS.barrier
+          : (breakable ? COLORS.breakableSteel : COLORS.steel);
         ctx.fillRect(px + 4, py + 4, TILE - 8, TILE - 8);
         ctx.strokeStyle = COLORS.steelLight;
         ctx.lineWidth = 2;
@@ -2742,6 +2844,21 @@ function drawTerrain() {
           ctx.arc(px + ox, py + oy, 2.2, 0, Math.PI * 2);
           ctx.fill();
         });
+
+        if (barrier) {
+          ctx.fillStyle = COLORS.barrierDark;
+          ctx.fillRect(px + 11, py + 8, 6, TILE - 16);
+          ctx.fillRect(px + 31, py + 8, 6, TILE - 16);
+
+          ctx.strokeStyle = COLORS.barrierWarn;
+          ctx.lineWidth = 4;
+          for (let offset = -22; offset < TILE + 22; offset += 16) {
+            ctx.beginPath();
+            ctx.moveTo(px + offset, py + TILE - 8);
+            ctx.lineTo(px + offset + 20, py + 8);
+            ctx.stroke();
+          }
+        }
 
         if (breakable) {
           ctx.strokeStyle = COLORS.breakableSteelWeak;
@@ -3529,8 +3646,17 @@ if (window.location.hostname === '127.0.0.1') {
         advanced: environment.advanced,
         cycle: environment.cycle,
         mudCells: environment.mudCells.map(cell => [...cell]),
+        barrierCells: environment.barrierCells.map(cell => [...cell]),
       } : null;
     })(),
+    environmentBarrier: state.environmentBarrier ? {
+      ...state.environmentBarrier,
+      barrierCells: state.environmentBarrier.barrierCells.map(cell => [...cell]),
+      openCells: state.environmentBarrier.openCells.map(cell => [...cell]),
+      plannedClosedCells: state.environmentBarrier.plannedClosedCells.map(cell => [...cell]),
+      closedCells: state.environmentBarrier.closedCells.map(cell => [...cell]),
+      skippedClosedCells: state.environmentBarrier.skippedClosedCells.map(cell => [...cell]),
+    } : null,
     terrainCounts: state.grid.flat().reduce((counts, tile) => {
       counts[tile.type] = (counts[tile.type] || 0) + 1;
       return counts;
@@ -3679,6 +3805,22 @@ if (window.location.hostname === '127.0.0.1') {
       if (type === 'brick') tile.mask = mask;
       state.grid[ty][tx] = tile;
       return { ...tile };
+    },
+
+    addBullet({ x, y, dx, dy, team = 'player', speed = 405 }) {
+      state.bullets.push(new Bullet(x, y, dx, dy, team, { speed }));
+      return testSnapshot();
+    },
+
+    stepBullets(dt = 0.05) {
+      for (const bullet of state.bullets) bullet.update(dt);
+      state.bullets = state.bullets.filter(bullet => !bullet.dead);
+      return testSnapshot();
+    },
+
+    applyWaveEnvironmentForTest() {
+      applyWaveEnvironmentState();
+      return testSnapshot();
     },
 
     driveP1(dir, distance = 8) {

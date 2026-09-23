@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.17-mud-line';
+const CACHE = 'zirhova-v0.17-tactical-gates';
 const ASSETS = [
   './',
   './index.html',
