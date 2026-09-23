@@ -40,7 +40,9 @@ function assert(condition, message, data) {
 const history = [];
 let lastScore = 0;
 
-for (let completed = 1; completed <= 12; completed++) {
+const TOTAL_WAVES = 36;
+
+for (let completed = 1; completed <= TOTAL_WAVES; completed++) {
   const before = await call('snapshot');
 
   const expectedStage = Math.floor((completed - 1) / 3) + 1;
@@ -137,11 +139,19 @@ for (let completed = 1; completed <= 12; completed++) {
   });
 }
 
-// We completed four stages; next state must be stage 5 / absolute wave 13.
+// Twelve complete stages exercise all six doctrines, the first advanced
+// doctrine cycle, and four boss finales. The next state must be B13 / wave 37.
 const longRun = await call('snapshot');
 assert(
-  longRun.stage === 5 && longRun.wave === 13 && longRun.waveInStage === 1,
-  '12-wave lifecycle did not land at stage 5 wave 1',
+  longRun.stage === 13 && longRun.wave === 37 && longRun.waveInStage === 1,
+  '36-wave lifecycle did not land at stage 13 wave 1',
+  longRun
+);
+assert(
+  longRun.doctrine?.id === 'broken-line' &&
+  longRun.doctrine.advanced &&
+  longRun.doctrine.cycle >= 2,
+  'Stage 13 did not retain advanced KIRIK HAT doctrine after the repeat cycle',
   longRun
 );
 assert(longRun.running && !longRun.gameOver, 'Long run ended unexpectedly', longRun);
@@ -173,8 +183,8 @@ if (runtimeErrors.length) {
 }
 
 console.log('PASS long-run lifecycle', {
-  wavesCompleted: 12,
-  stagesCompleted: 4,
+  wavesCompleted: TOTAL_WAVES,
+  stagesCompleted: 12,
   nextState: { stage: longRun.stage, wave: longRun.wave, waveInStage: longRun.waveInStage },
   finalScoreBeforeRestart: lastScore,
   transientCleanup: 'ok',

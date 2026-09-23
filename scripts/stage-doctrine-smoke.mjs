@@ -24,9 +24,9 @@ await page.addInitScript(() => {
   localStorage.removeItem('zirhova-campaign-checkpoint-v1');
   localStorage.setItem('zirhova-profile-v2', JSON.stringify({
     version: 3,
-    bestStage: 8,
-    bestScore: 5000,
-    bestSoloScore: 5000,
+    bestStage: 12,
+    bestScore: 12000,
+    bestSoloScore: 12000,
     selectedSkin: 'classic',
   }));
 });
@@ -47,63 +47,51 @@ async function startStage(stage) {
   await page.reload({ waitUntil: 'networkidle' });
   await page.click('#stageSelectBtn');
   await page.click(`[data-stage="${stage}"]`);
-  await page.waitForTimeout(50);
+  await page.waitForTimeout(40);
   return snapshot();
 }
 
+const expected = [
+  [1, 'KIRIK HAT · KANAT', 'broken-line', 'KANAT', false],
+  [2, 'DAR GEÇİT · KORİDOR', 'narrow-gate', 'KORİDOR', false],
+  [3, 'SU KAPANI · BOĞAZ', 'water-trap', 'BOĞAZ', false],
+  [4, 'ÇELİK KAVŞAK · AĞIR HAT', 'steel-crossroads', 'AĞIR HAT', false],
+  [5, 'YARIK OVA · HAREKETLİ CEPHE', 'split-plain', 'HAREKETLİ CEPHE', false],
+  [6, 'SON SİPER · KUŞATMA', 'last-bastion', 'KUŞATMA', false],
+  [7, 'KIRIK HAT · İLERİ KANAT', 'broken-line', 'İLERİ KANAT', true],
+  [8, 'DAR GEÇİT · DARBOĞAZ', 'narrow-gate', 'DARBOĞAZ', true],
+  [9, 'SU KAPANI · SU KISKACI', 'water-trap', 'SU KISKACI', true],
+  [10, 'ÇELİK KAVŞAK · ÇELİK KUŞATMA', 'steel-crossroads', 'ÇELİK KUŞATMA', true],
+  [11, 'YARIK OVA · AÇIK AVCI', 'split-plain', 'AÇIK AVCI', true],
+  [12, 'SON SİPER · SON KUŞATMA', 'last-bastion', 'SON KUŞATMA', true],
+];
+
 await page.click('#stageSelectBtn');
-const cards = {
-  b1: await page.locator('[data-stage="1"]').innerText(),
-  b2: await page.locator('[data-stage="2"]').innerText(),
-  b7: await page.locator('[data-stage="7"]').innerText(),
-  b8: await page.locator('[data-stage="8"]').innerText(),
-};
-assert(cards.b1.includes('KIRIK HAT · KANAT'), 'B1 card missing KIRIK HAT identity', cards);
-assert(cards.b2.includes('DAR GEÇİT · KORİDOR'), 'B2 card missing DAR GEÇİT identity', cards);
-assert(cards.b7.includes('KIRIK HAT · İLERİ KANAT'), 'B7 card missing advanced KIRIK HAT identity', cards);
-assert(cards.b8.includes('DAR GEÇİT · DARBOĞAZ'), 'B8 card missing advanced DAR GEÇİT identity', cards);
+for (const [stage, cardText] of expected) {
+  const text = await page.locator(`[data-stage="${stage}"]`).innerText();
+  assert(text.includes(cardText), `B${stage} card identity mismatch`, { text, cardText });
+}
 await page.click('#stageSelectCloseBtn');
 
-const b1 = await startStage(1);
-assert(
-  b1.stage === 1 && b1.doctrine?.id === 'broken-line' &&
-  !b1.doctrine.advanced && b1.doctrine.label === 'KANAT',
-  'B1 runtime doctrine mismatch',
-  b1
-);
-
-const b2 = await startStage(2);
-assert(
-  b2.stage === 2 && b2.doctrine?.id === 'narrow-gate' &&
-  !b2.doctrine.advanced && b2.doctrine.label === 'KORİDOR',
-  'B2 runtime doctrine mismatch',
-  b2
-);
-
-const b7 = await startStage(7);
-assert(
-  b7.stage === 7 && b7.doctrine?.id === 'broken-line' &&
-  b7.doctrine.advanced && b7.doctrine.label === 'İLERİ KANAT',
-  'B7 advanced runtime doctrine mismatch',
-  b7
-);
-
-const b8 = await startStage(8);
-assert(
-  b8.stage === 8 && b8.doctrine?.id === 'narrow-gate' &&
-  b8.doctrine.advanced && b8.doctrine.label === 'DARBOĞAZ',
-  'B8 advanced runtime doctrine mismatch',
-  b8
-);
+const runtime = [];
+for (const [stage, , id, label, advanced] of expected) {
+  const snap = await startStage(stage);
+  runtime.push({ stage, doctrine: snap.doctrine });
+  assert(
+    snap.stage === stage &&
+    snap.doctrine?.id === id &&
+    snap.doctrine.label === label &&
+    snap.doctrine.advanced === advanced,
+    `B${stage} runtime doctrine mismatch`,
+    snap
+  );
+}
 
 assert(errors.length === 0, 'Stage doctrine runtime errors', errors);
 
 console.log('PASS stage doctrine integration', {
-  cards,
-  b1: b1.doctrine,
-  b2: b2.doctrine,
-  b7: b7.doctrine,
-  b8: b8.doctrine,
+  stagesChecked: expected.length,
+  runtime,
   runtimeErrors: 0,
 });
 

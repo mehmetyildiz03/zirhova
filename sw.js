@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.15-stage-doctrines';
+const CACHE = 'zirhova-v0.15-full-stage-doctrines';
 const ASSETS = [
   './',
   './index.html',
