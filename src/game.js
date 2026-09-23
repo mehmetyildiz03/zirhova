@@ -3034,8 +3034,14 @@ if (window.location.hostname === '127.0.0.1') {
     coop: state.coop,
     profile: {
       bestScore: progress.bestScore,
+      bestSoloScore: progress.bestSoloScore,
+      bestCoopScore: progress.bestCoopScore,
+      bestDeploymentScore: progress.bestDeploymentScore,
       bestStage: progress.bestStage,
       runs: progress.runs,
+      campaignRuns: progress.campaignRuns,
+      deploymentRuns: progress.deploymentRuns,
+      customRuns: progress.customRuns,
       coopRuns: progress.coopRuns,
       enemiesDefeated: progress.enemiesDefeated,
       bossesDefeated: progress.bossesDefeated,
@@ -3045,6 +3051,9 @@ if (window.location.hostname === '127.0.0.1') {
       selectedSkin: progress.selectedSkin,
       unlockedSkins: unlockedSkinIds(progress),
     },
+    runClass: state.runClass,
+    runStartStage: state.runStartStage,
+    checkpoint: readCampaignCheckpoint(),
     running: state.running,
     gameOver: state.gameOver,
     awaitingUpgrade: state.awaitingUpgrade,
@@ -3258,6 +3267,17 @@ if (window.location.hostname === '127.0.0.1') {
       if (stage !== undefined) state.stage = stage;
       if (wave !== undefined) state.wave = wave;
       if (waveInStage !== undefined) state.waveInStage = waveInStage;
+      return testSnapshot();
+    },
+
+    setScore(score) {
+      state.score = Math.max(0, Math.floor(Number(score) || 0));
+      syncUI();
+      return testSnapshot();
+    },
+
+    endRunForTest(reason = 'TEST') {
+      endGame(reason);
       return testSnapshot();
     },
 
