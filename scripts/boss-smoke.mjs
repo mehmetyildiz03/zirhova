@@ -130,10 +130,17 @@ hit = await call('hitEnemy', 0, 2, {
 boss = hit.snapshot.enemyStates[0];
 assert(!hit.result?.blocked && boss.hp === 5, 'KISKAÇ incorrectly inherited frontal armor', hit);
 
-// Let the standard 80 ms post-hit shield expire before expecting a boss ability.
+// Let the standard 80 ms post-hit shield expire; KISKAÇ must telegraph before firing.
 snap = await call('stepEnemyUpdates', 0.09);
 boss = snap.enemyStates[0];
+assert(snap.bulletStates.length === 0, 'KISKAÇ fired before its telegraph window', snap.bulletStates);
+assert(boss.bossAbilityWindup > 0.30, 'KISKAÇ phase-1 telegraph did not start', boss);
+assert(boss.bossAbilityAimDir === boss.dir, 'KISKAÇ telegraph direction does not match visible facing', boss);
+
+snap = await call('stepEnemyUpdates', 0.50);
+boss = snap.enemyStates[0];
 assert(snap.bulletStates.length === 3, 'KISKAÇ phase 1 did not fire a three-way salvo', snap.bulletStates);
+assert(snap.bulletStates.every(b => b.bossVolley), 'KISKAÇ salvo bullets are not visually classified', snap.bulletStates);
 assert(new Set(snap.bulletStates.map(b => `${b.dx},${b.dy}`)).size === 3, 'KISKAÇ phase-1 salvo directions are not distinct', snap.bulletStates);
 assert(boss.bossAbilityCooldown > 1, 'KISKAÇ salvo cooldown was not reset', boss);
 
@@ -152,12 +159,18 @@ assert(boss.bossPhase === 2, 'KISKAÇ did not enter phase 2 at half HP', boss);
 
 await call('setEnemy', 0, { bossAbilityCooldown: 0 });
 snap = await call('stepEnemyUpdates', 0.01);
+boss = snap.enemyStates[0];
+assert(snap.bulletStates.length === 3, 'KISKAÇ phase 2 fired without telegraph', snap.bulletStates);
+assert(boss.bossAbilityWindup > 0.25, 'KISKAÇ phase-2 telegraph did not start', boss);
+
+snap = await call('stepEnemyUpdates', 0.40);
 assert(
   snap.bulletStates.length === 7,
   'KISKAÇ phase 2 did not add a four-way salvo',
   snap.bulletStates
 );
 const phase2Bullets = snap.bulletStates.slice(-4);
+assert(phase2Bullets.every(b => b.bossVolley), 'Phase-2 salvo bullets lost boss-volley identity', phase2Bullets);
 assert(
   new Set(phase2Bullets.map(b => `${b.dx},${b.dy}`)).size === 4,
   'KISKAÇ phase-2 salvo must cover all four cardinal directions',

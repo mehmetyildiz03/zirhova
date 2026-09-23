@@ -11,6 +11,7 @@ import {
   bossDamageResult,
   pincerVolleyDirections,
   bossAbilityCooldown,
+  pincerVolleyWindup,
 } from '../src/bossSystem.js';
 
 function assert(condition, message, data) {
@@ -99,6 +100,12 @@ assert(
 assert(
   bossAbilityCooldown(3, BOSS_TYPE, 1) === Infinity,
   'BURÇKIRAN must not receive KISKAÇ salvo cooldown'
+);
+assert(pincerVolleyWindup(6, 1) >= 0.40, 'B6 KISKAÇ phase-1 telegraph is too short');
+assert(pincerVolleyWindup(6, 2) >= 0.34, 'B6 KISKAÇ phase-2 telegraph is too short');
+assert(
+  pincerVolleyWindup(6, 2) < pincerVolleyWindup(6, 1),
+  'KISKAÇ phase 2 telegraph should be shorter but still readable'
 );
 
 console.log('PASS boss mechanics', {

@@ -118,3 +118,11 @@ export function bossAbilityCooldown(stage, type, phase = 1) {
   }
   return Math.max(1.90, 2.55 - (tier - 1) * 0.12);
 }
+
+export function pincerVolleyWindup(stage, phase = 1) {
+  const tier = variantTier(stage);
+  if (Number(phase) >= 2) {
+    return Math.max(0.30, 0.36 - (tier - 1) * 0.03);
+  }
+  return Math.max(0.38, 0.46 - (tier - 1) * 0.04);
+}

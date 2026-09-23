@@ -6,7 +6,7 @@ import { freshActions, mergeActions, readGamepadActions, pickDirection } from '.
 import { NAV_STEP, isNavAlignedStart, navStartCandidates } from './navigationSystem.js';
 import { waveEnemyCount, buildEnemyRoster, carrierIndexForWave, shouldDropArsenal } from './balanceSystem.js';
 import { stageDoctrine, doctrineSpawnPlan } from './stageDoctrineSystem.js';
-import { BOSS_TYPE, SECOND_BOSS_TYPE, isBossWave, bossTypeForStage, bossName, bossStats, bossPhase, bossDamageResult, pincerVolleyDirections, bossAbilityCooldown } from './bossSystem.js';
+import { BOSS_TYPE, SECOND_BOSS_TYPE, isBossWave, bossTypeForStage, bossName, bossStats, bossPhase, bossDamageResult, pincerVolleyDirections, bossAbilityCooldown, pincerVolleyWindup } from './bossSystem.js';
 import { createAudioSystem } from './audioSystem.js';
 import { PROFILE_STORAGE_KEY, LEGACY_PROGRESS_KEY, ACHIEVEMENTS, TANK_SKINS, migrateProfile, applyProfileEvent, selectSkin, skinById, unlockedSkinIds, achievementById } from './progressionSystem.js';
 import { CHECKPOINT_STORAGE_KEY, deploymentLoadout, createCheckpoint, normalizeCheckpoint, selectableStages, runRecordLabel } from './runSystem.js';
@@ -363,6 +363,8 @@ class Tank extends RectEntity {
     this.armorFlash = 0;
     this.bossPhase = 1;
     this.bossAbilityCooldown = type === SECOND_BOSS_TYPE ? 1.6 : Infinity;
+    this.bossAbilityWindup = 0;
+    this.bossAbilityAimDir = this.dir;
     this.recoil = 0;
   }
 
@@ -426,8 +428,11 @@ class Tank extends RectEntity {
     this.directionHoldClock = Math.max(0, this.directionHoldClock - dt);
     this.trafficWaitClock = Math.max(0, this.trafficWaitClock - dt);
 
-    if (this.type === SECOND_BOSS_TYPE) {
-      this.updatePincerAbility(target, dt);
+    if (
+      this.type === SECOND_BOSS_TYPE &&
+      this.updatePincerAbility(target, dt)
+    ) {
+      return;
     }
 
     if (this.trafficYieldClock > 0 && this.trafficYieldDir) {
@@ -702,7 +707,7 @@ class Tank extends RectEntity {
     return Math.abs(this.x - startX) + Math.abs(this.y - startY) > 0.01;
   }
 
-  fireEnemyBullet(dir, { speed = null, strong = null } = {}) {
+  fireEnemyBullet(dir, { speed = null, strong = null, bossVolley = false } = {}) {
     const d = DIRS[dir];
     if (!d || this.dead) return false;
 
@@ -725,33 +730,21 @@ class Tank extends RectEntity {
           speed: bulletSpeed,
           strong: strongShot,
           canBreakSteel: false,
+          bossVolley,
         }
       )
     );
     return true;
   }
 
-  updatePincerAbility(target, dt) {
-    this.bossAbilityCooldown = Math.max(0, this.bossAbilityCooldown - dt);
-    if (
-      this.bossAbilityCooldown > 0 ||
-      this.spawnShield > 0 ||
-      this.dead ||
-      !target
-    ) return;
-
-    const dx = target.cx - this.cx;
-    const dy = target.cy - this.cy;
-    const primary = Math.abs(dx) > Math.abs(dy)
-      ? (dx >= 0 ? 'right' : 'left')
-      : (dy >= 0 ? 'down' : 'up');
-
-    this.applyAIDirection(primary, 0.18);
-    const directions = pincerVolleyDirections(primary, this.bossPhase);
+  firePincerVolley() {
+    const aimDir = this.bossAbilityAimDir || this.dir;
+    const directions = pincerVolleyDirections(aimDir, this.bossPhase);
     for (const dir of directions) {
       this.fireEnemyBullet(dir, {
         speed: this.spec.volleyBulletSpeed,
         strong: false,
+        bossVolley: true,
       });
     }
 
@@ -765,6 +758,40 @@ class Tank extends RectEntity {
     this.recoil = 2.6;
     addShake(this.bossPhase === 2 ? 1.8 : 1.2);
     audio.cannon({ boss: true, strong: false });
+  }
+
+  updatePincerAbility(target, dt) {
+    if (this.bossAbilityWindup > 0) {
+      this.bossAbilityWindup = Math.max(0, this.bossAbilityWindup - dt);
+      if (this.bossAbilityWindup <= 0) this.firePincerVolley();
+      return true;
+    }
+
+    this.bossAbilityCooldown = Math.max(0, this.bossAbilityCooldown - dt);
+    if (
+      this.bossAbilityCooldown > 0 ||
+      this.spawnShield > 0 ||
+      this.dead ||
+      !target
+    ) return false;
+
+    const dx = target.cx - this.cx;
+    const dy = target.cy - this.cy;
+    const primary = Math.abs(dx) > Math.abs(dy)
+      ? (dx >= 0 ? 'right' : 'left')
+      : (dy >= 0 ? 'down' : 'up');
+
+    this.applyAIDirection(primary, 0.24);
+    this.bossAbilityAimDir = this.dir;
+    this.bossAbilityWindup = pincerVolleyWindup(
+      state.stage,
+      this.bossPhase
+    );
+    this.fireCooldown = Math.max(
+      this.fireCooldown,
+      this.bossAbilityWindup + 0.18
+    );
+    return true;
   }
 
   shoot() {
@@ -969,7 +996,39 @@ class Tank extends RectEntity {
     }
 
     ctx.restore();
+    if (this.type === SECOND_BOSS_TYPE && this.bossAbilityWindup > 0) {
+      this.drawPincerTelegraph();
+    }
     this.drawHealth();
+  }
+
+  drawPincerTelegraph() {
+    const directions = pincerVolleyDirections(
+      this.bossAbilityAimDir || this.dir,
+      this.bossPhase
+    );
+    const pulse = 0.58 + 0.32 * Math.sin(performance.now() / 58) ** 2;
+
+    ctx.save();
+    ctx.strokeStyle = `rgba(126,230,220,${pulse})`;
+    ctx.lineWidth = 4;
+    ctx.setLineDash([9, 6]);
+
+    for (const name of directions) {
+      const d = DIRS[name];
+      ctx.beginPath();
+      ctx.moveTo(this.cx + d.x * 27, this.cy + d.y * 27);
+      ctx.lineTo(this.cx + d.x * 96, this.cy + d.y * 96);
+      ctx.stroke();
+    }
+
+    ctx.setLineDash([]);
+    ctx.strokeStyle = `rgba(184,255,247,${Math.min(1, pulse + 0.12)})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(this.cx, this.cy, 25, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 
   drawEnemyMark() {
@@ -1031,6 +1090,7 @@ class Bullet extends RectEntity {
     this.speed = options.speed ?? 405;
     this.strong = Boolean(options.strong);
     this.canBreakSteel = Boolean(options.canBreakSteel);
+    this.bossVolley = Boolean(options.bossVolley);
   }
 
   update(dt) {
@@ -1135,15 +1195,31 @@ class Bullet extends RectEntity {
   }
 
   draw() {
-    ctx.strokeStyle = this.strong ? '#ffffff' : '#d7d1a8';
-    ctx.lineWidth = this.strong ? 3 : 2;
+    const volleyColor = '#7ee6dc';
+
+    ctx.save();
+    if (this.bossVolley) {
+      ctx.shadowColor = volleyColor;
+      ctx.shadowBlur = 10;
+    }
+
+    ctx.strokeStyle = this.bossVolley
+      ? volleyColor
+      : (this.strong ? '#ffffff' : '#d7d1a8');
+    ctx.lineWidth = this.bossVolley || this.strong ? 3 : 2;
     ctx.beginPath();
-    ctx.moveTo(this.cx - this.dx * 12, this.cy - this.dy * 12);
+    ctx.moveTo(
+      this.cx - this.dx * (this.bossVolley ? 18 : 12),
+      this.cy - this.dy * (this.bossVolley ? 18 : 12)
+    );
     ctx.lineTo(this.cx, this.cy);
     ctx.stroke();
 
-    ctx.fillStyle = this.strong ? '#ffffff' : COLORS.bullet;
+    ctx.fillStyle = this.bossVolley
+      ? '#b8fff7'
+      : (this.strong ? '#ffffff' : COLORS.bullet);
     ctx.fillRect(this.x, this.y, this.w, this.h);
+    ctx.restore();
   }
 }
 
@@ -2138,6 +2214,7 @@ function handleDeaths() {
       trackProgress({
         type: 'enemy-defeated',
         boss: bossDefeated,
+        bossType: bossDefeated ? enemy.type : null,
       });
     }
     if (enemy.carrier) spawnPowerup(enemy.cx, enemy.cy);
@@ -3355,6 +3432,8 @@ if (window.location.hostname === '127.0.0.1') {
       coopRuns: progress.coopRuns,
       enemiesDefeated: progress.enemiesDefeated,
       bossesDefeated: progress.bossesDefeated,
+      bastionsDefeated: progress.bastionsDefeated,
+      pincersDefeated: progress.pincersDefeated,
       stagesCompleted: progress.stagesCompleted,
       highestWeaponTier: progress.highestWeaponTier,
       achievementIds: [...progress.achievementIds],
@@ -3420,6 +3499,8 @@ if (window.location.hostname === '127.0.0.1') {
         boss: Boolean(enemy.spec?.boss),
         bossPhase: enemy.bossPhase,
         bossAbilityCooldown: enemy.bossAbilityCooldown,
+        bossAbilityWindup: enemy.bossAbilityWindup,
+        bossAbilityAimDir: enemy.bossAbilityAimDir,
         armorFlash: enemy.armorFlash,
       })),
     queuedEnemyTypes: state.waveSpawnQueue.map(entry => entry.type),
@@ -3428,6 +3509,7 @@ if (window.location.hostname === '127.0.0.1') {
       dy: bullet.dy,
       team: bullet.team,
       strong: bullet.strong,
+      bossVolley: bullet.bossVolley,
       speed: bullet.speed,
     })),
     p1: state.player ? {

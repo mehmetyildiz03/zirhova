@@ -17,7 +17,7 @@ function assert(condition, message, data) {
 const migrated = migrateProfile(null, { bestScore: 4321, bestStage: 4 });
 assert(migrated.bestScore === 4321, 'Legacy best score was not migrated', migrated);
 assert(migrated.bestStage === 4, 'Legacy best stage was not migrated', migrated);
-assert(migrated.version === 3, 'Profile version is not v3', migrated);
+assert(migrated.version === 4, 'Profile version is not v4', migrated);
 assert(unlockedSkinIds(migrated).includes('cobalt'), 'Legacy stage should unlock cobalt', migrated);
 
 let profile = createProfile();
@@ -34,11 +34,30 @@ assert(profile.bestStage === 3, 'Best stage did not advance', profile);
 assert(profile.achievementIds.includes('line-holder'), 'Stage achievement missing', profile);
 assert(unlockedSkinIds(profile).includes('cobalt'), 'Cobalt skin did not unlock', profile);
 
-result = applyProfileEvent(profile, { type: 'enemy-defeated', boss: true, score: 2500 });
+result = applyProfileEvent(profile, {
+  type: 'enemy-defeated',
+  boss: true,
+  bossType: 'pincer',
+  score: 2500,
+});
 profile = result.profile;
 assert(profile.bossesDefeated === 1, 'Boss counter did not increment', profile);
-assert(profile.achievementIds.includes('bastion-breaker'), 'Boss achievement missing', profile);
-assert(unlockedSkinIds(profile).includes('ember'), 'Ember skin did not unlock', profile);
+assert(profile.pincersDefeated === 1, 'KISKAÇ counter did not increment', profile);
+assert(profile.bastionsDefeated === 0, 'KISKAÇ contaminated BURÇKIRAN counter', profile);
+assert(!profile.achievementIds.includes('bastion-breaker'), 'KISKAÇ incorrectly unlocked BURÇ KIRICI', profile);
+assert(!unlockedSkinIds(profile).includes('ember'), 'KISKAÇ incorrectly unlocked KOR paint', profile);
+
+result = applyProfileEvent(profile, {
+  type: 'enemy-defeated',
+  boss: true,
+  bossType: 'bastion',
+  score: 2500,
+});
+profile = result.profile;
+assert(profile.bossesDefeated === 2, 'Second boss did not increment total boss counter', profile);
+assert(profile.bastionsDefeated === 1, 'BURÇKIRAN counter did not increment', profile);
+assert(profile.achievementIds.includes('bastion-breaker'), 'BURÇKIRAN achievement missing', profile);
+assert(unlockedSkinIds(profile).includes('ember'), 'BURÇKIRAN did not unlock KOR paint', profile);
 
 result = applyProfileEvent(profile, { type: 'weapon-tier', tier: 3 });
 profile = result.profile;
@@ -107,6 +126,19 @@ for (let i = profile.runs; i < 10; i++) {
 }
 assert(profile.runs === 10, 'Veteran run count mismatch', profile);
 assert(profile.achievementIds.includes('veteran'), 'Veteran achievement missing', profile);
+
+const legacyBossProfile = migrateProfile({
+  version: 3,
+  bossesDefeated: 2,
+  achievementIds: ['bastion-breaker'],
+}, null);
+assert(
+  legacyBossProfile.bastionsDefeated === 2 &&
+  legacyBossProfile.pincersDefeated === 0 &&
+  unlockedSkinIds(legacyBossProfile).includes('ember'),
+  'Legacy v3 boss progress was not preserved during v4 migration',
+  legacyBossProfile
+);
 
 const fresh = createProfile();
 const lockedSelect = selectSkin(fresh, 'ember');

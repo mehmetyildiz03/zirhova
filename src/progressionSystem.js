@@ -1,4 +1,4 @@
-export const PROFILE_VERSION = 3;
+export const PROFILE_VERSION = 4;
 export const PROFILE_STORAGE_KEY = 'zirhova-profile-v2';
 export const LEGACY_PROGRESS_KEY = 'zirhova-progress-v1';
 
@@ -24,7 +24,7 @@ export const ACHIEVEMENTS = Object.freeze([
     id: 'bastion-breaker',
     title: 'BURÇ KIRICI',
     description: 'Bir BURÇKIRAN imha et.',
-    earned: profile => profile.bossesDefeated >= 1,
+    earned: profile => profile.bastionsDefeated >= 1,
   },
   {
     id: 'arsenal-master',
@@ -84,7 +84,7 @@ export const TANK_SKINS = Object.freeze([
     primary: '#dc7b4a',
     dark: '#713920',
     accent: '#ffd0a8',
-    unlocked: profile => profile.bossesDefeated >= 1,
+    unlocked: profile => profile.bastionsDefeated >= 1,
   },
   {
     id: 'ivory',
@@ -121,6 +121,8 @@ export function createProfile(seed = {}) {
     coopRuns: int(seed.coopRuns, 0),
     enemiesDefeated: int(seed.enemiesDefeated, 0),
     bossesDefeated: int(seed.bossesDefeated, 0),
+    bastionsDefeated: int(seed.bastionsDefeated, 0),
+    pincersDefeated: int(seed.pincersDefeated, 0),
     stagesCompleted: int(seed.stagesCompleted, 0),
     highestWeaponTier: int(seed.highestWeaponTier, 1, 1),
     achievementIds: Array.isArray(seed.achievementIds)
@@ -142,10 +144,21 @@ export function migrateProfile(rawProfile, legacyProgress = null) {
   const raw = rawProfile && typeof rawProfile === 'object' ? rawProfile : {};
   const legacy = legacyProgress && typeof legacyProgress === 'object' ? legacyProgress : {};
 
+  const legacyBossTotal = int(raw.bossesDefeated, 0);
+  const typedBossCountersPresent =
+    Object.prototype.hasOwnProperty.call(raw, 'bastionsDefeated') ||
+    Object.prototype.hasOwnProperty.call(raw, 'pincersDefeated');
+
   return createProfile({
     ...raw,
     bestScore: Math.max(int(raw.bestScore, 0), int(legacy.bestScore, 0)),
     bestStage: Math.max(int(raw.bestStage, 1, 1), int(legacy.bestStage, 1, 1)),
+    bastionsDefeated: typedBossCountersPresent
+      ? int(raw.bastionsDefeated, 0)
+      : legacyBossTotal,
+    pincersDefeated: typedBossCountersPresent
+      ? int(raw.pincersDefeated, 0)
+      : 0,
   });
 }
 
@@ -196,7 +209,11 @@ export function applyProfileEvent(profile, event = {}) {
   switch (event.type) {
     case 'enemy-defeated':
       next.enemiesDefeated += 1;
-      if (event.boss) next.bossesDefeated += 1;
+      if (event.boss) {
+        next.bossesDefeated += 1;
+        if (event.bossType === 'bastion') next.bastionsDefeated += 1;
+        if (event.bossType === 'pincer') next.pincersDefeated += 1;
+      }
       break;
 
     case 'stage-completed':

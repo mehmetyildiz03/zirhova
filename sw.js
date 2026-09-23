@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.16-pincer-boss';
+const CACHE = 'zirhova-v0.16-boss-polish';
 const ASSETS = [
   './',
   './index.html',
