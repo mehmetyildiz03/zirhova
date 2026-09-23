@@ -236,6 +236,182 @@ canvas {
   font-size: 10px;
 }
 
+.profile-panel {
+  width: min(96%, 720px);
+  text-align: left;
+}
+
+.profile-panel h2,
+.profile-panel > .kicker,
+.profile-panel > .profile-intro {
+  text-align: center;
+}
+
+.profile-intro {
+  max-width: 620px;
+  margin-inline: auto !important;
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 14px 0 18px;
+}
+
+.profile-stat {
+  display: grid;
+  gap: 4px;
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 1px solid #2d4054;
+  border-radius: 10px;
+  background: #0b1219;
+}
+
+.profile-stat span {
+  color: #8294a8;
+  font-size: 9px;
+  letter-spacing: .08em;
+  font-weight: 900;
+}
+
+.profile-stat strong {
+  font-size: 17px;
+  color: #f3f6f8;
+}
+
+.profile-section {
+  margin: 16px 0;
+}
+
+.profile-section h3 {
+  margin: 0 0 9px;
+  font-size: 13px;
+  letter-spacing: .08em;
+  color: #dfe7ee;
+}
+
+.skin-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.panel .skin-card {
+  min-width: 0;
+  min-height: 112px;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 7px;
+  padding: 10px 7px;
+  color: var(--text);
+  background: #101923;
+  border: 1px solid #30455a;
+  letter-spacing: 0;
+}
+
+.panel .skin-card.selected {
+  border-color: #e6d35a;
+  box-shadow: inset 0 0 0 1px rgba(230,211,90,.28);
+}
+
+.panel .skin-card:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  filter: grayscale(.45);
+}
+
+.skin-swatch {
+  width: 42px;
+  height: 30px;
+  border-radius: 7px;
+  border: 2px solid var(--skin-dark);
+  background:
+    linear-gradient(90deg,
+      var(--skin-dark) 0 18%,
+      var(--skin-primary) 18% 82%,
+      var(--skin-dark) 82% 100%);
+  box-shadow: inset 0 0 0 3px rgba(255,255,255,.05);
+}
+
+.skin-card strong {
+  font-size: 11px;
+  color: #f3f6f8;
+}
+
+.skin-card small {
+  font-size: 9px;
+  line-height: 1.3;
+  color: #8ea0b2;
+  text-align: center;
+}
+
+.achievement-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.achievement-card {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 8px;
+  align-items: center;
+  min-height: 62px;
+  padding: 9px 10px;
+  border: 1px solid #28394b;
+  border-radius: 10px;
+  background: #0b1219;
+  opacity: .58;
+}
+
+.achievement-card.earned {
+  opacity: 1;
+  border-color: #596037;
+  background: linear-gradient(180deg, #161c16, #0d1410);
+}
+
+.achievement-mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #3e5061;
+  border-radius: 999px;
+  color: #8090a0;
+  font-weight: 950;
+}
+
+.achievement-card.earned .achievement-mark {
+  color: #f3dc6b;
+  border-color: #8c7d2d;
+}
+
+.achievement-card strong,
+.achievement-card small {
+  display: block;
+}
+
+.achievement-card strong {
+  color: #eaf0f5;
+  font-size: 11px;
+  letter-spacing: .04em;
+}
+
+.achievement-card small {
+  margin-top: 3px;
+  color: #8fa0af;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+#profileCloseBtn {
+  display: block;
+  margin: 16px auto 0;
+}
+
 /* Touch controls are shown for coarse pointers and compact layouts. */
 .controls {
   display: none;
@@ -482,6 +658,24 @@ canvas {
 
   .panel .upgrade-card {
     min-height: 86px;
+  }
+
+  .profile-panel {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+    overflow: auto;
+  }
+
+  .profile-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .skin-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .achievement-grid {
+    grid-template-columns: 1fr;
   }
 }
 
