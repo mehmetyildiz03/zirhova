@@ -1718,10 +1718,12 @@ function pickUpgradeChoices(count) {
 function chooseUpgrade(upgrade) {
   if (!state.awaitingUpgrade) return;
 
-  trackProgress({
-    type: 'stage-completed',
-    nextStage: state.stage + 1,
-  });
+  if (state.runClass !== 'custom') {
+    trackProgress({
+      type: 'stage-completed',
+      nextStage: state.stage + 1,
+    });
+  }
 
   upgrade.apply();
   if (!upgrade.repeatable) {
@@ -1734,6 +1736,7 @@ function chooseUpgrade(upgrade) {
   state.wave++;
   state.waveInStage = 1;
   loadStage({ preserveBaseHp: true, announce: true });
+  writeCampaignCheckpoint();
 }
 
 function spawnPowerup(x, y) {
@@ -1761,7 +1764,9 @@ function applyPowerup(type) {
   if (type === 'arsenal') {
     if (state.weaponTier < MAX_WEAPON_TIER) {
       state.weaponTier = upgradeWeaponTier(state.weaponTier);
-      trackProgress({ type: 'weapon-tier', tier: state.weaponTier });
+      if (state.runClass !== 'custom') {
+        trackProgress({ type: 'weapon-tier', tier: state.weaponTier });
+      }
       notice = `NAMLU ${weaponProfile(state.weaponTier).label}`;
     } else {
       state.score += 250;
@@ -1917,11 +1922,12 @@ function handleDeaths() {
     if (!enemy.dead || enemy.counted) continue;
     enemy.counted = true;
     state.score += enemy.spec.score;
-    trackProgress({
-      type: 'enemy-defeated',
-      boss: Boolean(enemy.spec?.boss),
-      score: state.score,
-    });
+    if (state.runClass !== 'custom') {
+      trackProgress({
+        type: 'enemy-defeated',
+        boss: Boolean(enemy.spec?.boss),
+      });
+    }
     if (enemy.carrier) spawnPowerup(enemy.cx, enemy.cy);
     burst(
       enemy.cx,
@@ -2558,7 +2564,7 @@ function syncUI() {
   }
   if (UI.bestRun) {
     UI.bestRun.textContent =
-      `En iyi: B${progress.bestStage} · ${progress.bestScore} puan · ${progress.achievementIds.length}/${ACHIEVEMENTS.length} başarı`;
+      `Tam ${progress.bestScore} · Serbest ${progress.bestDeploymentScore} · B${progress.bestStage} · ${progress.achievementIds.length}/${ACHIEVEMENTS.length}`;
   }
 }
 
@@ -2574,11 +2580,12 @@ function endGame(reason) {
     score: state.score,
     stage: state.stage,
     coop: state.coop,
+    runClass: state.runClass,
   });
 
   UI.gameOverTitle.textContent = reason;
   UI.gameOverText.textContent =
-    `Skor ${state.score} • Bölüm ${state.stage} • Dalga ${state.waveInStage}/${WAVES_PER_STAGE}`;
+    `${runRecordLabel(state.runClass, state.runStartStage)} • Skor ${state.score} • Bölüm ${state.stage} • Dalga ${state.waveInStage}/${WAVES_PER_STAGE}`;
   UI.gameOver.classList.add('show');
   syncUI();
 }
