@@ -1112,6 +1112,111 @@ function readCustomLevel() {
   }
 }
 
+function readCampaignCheckpoint() {
+  if (CUSTOM_MODE) return null;
+  try {
+    const raw = localStorage.getItem(CHECKPOINT_STORAGE_KEY);
+    if (!raw) return null;
+    return normalizeCheckpoint(JSON.parse(raw), progress.bestStage);
+  } catch {
+    return null;
+  }
+}
+
+function writeCampaignCheckpoint() {
+  if (
+    CUSTOM_MODE ||
+    state.runClass !== 'campaign' ||
+    state.stage < 2 ||
+    state.waveInStage !== 1
+  ) return null;
+
+  const checkpoint = createCheckpoint({
+    stage: state.stage,
+    wave: state.wave,
+    waveInStage: state.waveInStage,
+    score: state.score,
+    lives: state.lives,
+    baseHp: state.base?.hp ?? MAX_BASE_HP,
+    weaponTier: state.weaponTier,
+    arsenalMisses: state.arsenalMisses,
+    modifiers: state.modifiers,
+    upgradeLevels: state.upgradeLevels,
+    coop: state.coop,
+  });
+
+  if (!checkpoint) return null;
+  try {
+    localStorage.setItem(CHECKPOINT_STORAGE_KEY, JSON.stringify(checkpoint));
+  } catch {}
+
+  refreshRunEntryUI();
+  return checkpoint;
+}
+
+function clearCampaignCheckpoint() {
+  try { localStorage.removeItem(CHECKPOINT_STORAGE_KEY); } catch {}
+  refreshRunEntryUI();
+}
+
+let stageSelectCoop = false;
+
+function refreshRunEntryUI() {
+  const checkpoint = readCampaignCheckpoint();
+
+  if (UI.continueBtn) {
+    UI.continueBtn.hidden = !checkpoint;
+    UI.continueBtn.textContent = checkpoint
+      ? `DEVAM · B${checkpoint.stage}`
+      : 'DEVAM';
+  }
+
+  if (UI.stageSelectBtn) {
+    UI.stageSelectBtn.hidden = CUSTOM_MODE || progress.bestStage <= 1;
+  }
+}
+
+function renderStageSelect() {
+  if (!UI.stageSelectGrid) return;
+
+  if (UI.stageSelectModeText) {
+    UI.stageSelectModeText.textContent = stageSelectCoop
+      ? '2 OYUNCU · SERBEST KONUŞLANMA'
+      : '1 OYUNCU · SERBEST KONUŞLANMA';
+  }
+
+  UI.stageSelectSoloBtn?.classList.toggle('selected', !stageSelectCoop);
+  UI.stageSelectCoopBtn?.classList.toggle('selected', stageSelectCoop);
+
+  UI.stageSelectGrid.innerHTML = selectableStages(progress.bestStage)
+    .map(stage => {
+      const recordClass = stage === 1 ? 'TAM KOŞU' : 'SERBEST';
+      return `
+        <button type="button" class="stage-card" data-stage="${stage}">
+          <strong>B${stage}</strong>
+          <small>${recordClass}</small>
+        </button>
+      `;
+    })
+    .join('');
+
+  UI.stageSelectGrid.querySelectorAll('[data-stage]').forEach(button => {
+    button.addEventListener('click', () => {
+      const stage = Number(button.dataset.stage) || 1;
+      UI.stageSelect?.classList.remove('show');
+      resetGame(stageSelectCoop, {
+        startStage: stage,
+        preserveCheckpoint: stage > 1,
+      });
+    });
+  });
+}
+
+function openStageSelect() {
+  renderStageSelect();
+  UI.stageSelect?.classList.add('show');
+}
+
 const state = {
   running: false,
   gameOver: false,
