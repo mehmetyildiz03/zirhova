@@ -1,4 +1,4 @@
-export const BALANCE_VERSION = 1;
+export const BALANCE_VERSION = 2;
 
 const TYPE_ORDER = ['raider', 'scout', 'hunter', 'breacher', 'heavy'];
 
@@ -23,15 +23,25 @@ export function waveDifficulty(wave) {
   return Math.max(1, Math.floor(Number(wave) || 1));
 }
 
-export function enemyCaps(wave, count) {
+export function enemyCaps(wave, count, capBonuses = null) {
   const w = waveDifficulty(wave);
-  return {
+  const caps = {
     raider: count,
     scout: Math.max(1, Math.ceil(count * 0.45)),
     hunter: w >= 4 ? Math.max(1, Math.ceil(count * 0.30)) : 0,
     breacher: w >= 6 ? (w >= 10 ? 2 : 1) : 0,
     heavy: w >= 8 ? (w >= 13 ? 2 : 1) : 0,
   };
+
+  if (capBonuses) {
+    for (const type of TYPE_ORDER) {
+      const raw = Number(capBonuses[type]);
+      if (!Number.isFinite(raw) || raw <= 0) continue;
+      caps[type] = Math.min(count, caps[type] + Math.floor(raw));
+    }
+  }
+
+  return caps;
 }
 
 export function enemyWeights(wave) {
@@ -73,6 +83,7 @@ export function buildEnemyRoster({
   count = waveEnemyCount(stage, waveInStage),
   rng = Math.random,
   weightMultipliers = null,
+  capBonuses = null,
 } = {}) {
   const w = waveDifficulty(wave);
   const safeCount = clamp(Math.floor(Number(count) || 0), 1, 11);
@@ -86,7 +97,7 @@ export function buildEnemyRoster({
       return [type, baseWeights[type] * multiplier];
     })
   );
-  const caps = enemyCaps(w, safeCount);
+  const caps = enemyCaps(w, safeCount, capBonuses);
   const roster = [];
   const counts = Object.fromEntries(TYPE_ORDER.map(type => [type, 0]));
 

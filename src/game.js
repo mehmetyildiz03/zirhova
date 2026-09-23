@@ -8,6 +8,7 @@ import { waveEnemyCount, buildEnemyRoster, carrierIndexForWave, shouldDropArsena
 import { stageDoctrine, doctrineSpawnPlan } from './stageDoctrineSystem.js';
 import { stageEnvironment, environmentBarrierState, terrainSpeedMultiplier, terrainPathCost } from './environmentSystem.js';
 import { MAX_STAGE_LIVES, stageSupplyById, normalizeStageSupplyId, stageSupplyChoices } from './supplySystem.js';
+import { veteranPressure, combineWeightMultipliers } from './veteranSystem.js';
 import { BOSS_TYPE, SECOND_BOSS_TYPE, isBossWave, bossTypeForStage, bossName, bossStats, bossPhase, bossDamageResult, pincerVolleyDirections, bossAbilityCooldown, pincerVolleyWindup } from './bossSystem.js';
 import { createAudioSystem } from './audioSystem.js';
 import { PROFILE_STORAGE_KEY, LEGACY_PROGRESS_KEY, ACHIEVEMENTS, TANK_SKINS, migrateProfile, applyProfileEvent, selectSkin, skinById, unlockedSkinIds, achievementById } from './progressionSystem.js';
@@ -1463,11 +1464,15 @@ function renderStageSelect() {
       const level = LEVELS[(stage - 1) % LEVELS.length];
       const doctrine = stageDoctrine(level.id, stage, LEVELS.length);
       const environment = stageEnvironment(level.id, stage, LEVELS.length);
+      const veteran = veteranPressure(stage, LEVELS.length);
       const identity = doctrine
         ? `${level.name} · ${doctrine.label}`
         : level.name;
       const environmentLine = environment
         ? `<small>${environment.label}</small>`
+        : '';
+      const veteranLine = veteran
+        ? `<small>${veteran.label}</small>`
         : '';
       const checkpointRisk = stage === 1 && checkpoint
         ? '<small class="stage-card-warning">DEVAM SİLİNİR</small>'
@@ -1477,6 +1482,7 @@ function renderStageSelect() {
           <strong>B${stage}</strong>
           <small>${identity}</small>
           ${environmentLine}
+          ${veteranLine}
           <small>${recordClass}</small>
           ${checkpointRisk}
         </button>
@@ -1564,6 +1570,11 @@ function currentStageEnvironment() {
   if (state.customLevel) return null;
   const level = currentLevel();
   return stageEnvironment(level.id, state.stage, LEVELS.length);
+}
+
+function currentVeteranPressure() {
+  if (state.customLevel) return null;
+  return veteranPressure(state.stage, LEVELS.length);
 }
 
 function applyCurrentStageEnvironment() {
@@ -1931,6 +1942,7 @@ function loadStage({
 function spawnWave() {
   const level = currentLevel();
   const doctrine = currentStageDoctrine();
+  const veteran = currentVeteranPressure();
   applyWaveEnvironmentState();
   const count = waveEnemyCount(state.stage, state.waveInStage);
   const roster = buildEnemyRoster({
@@ -1938,7 +1950,11 @@ function spawnWave() {
     wave: state.wave,
     waveInStage: state.waveInStage,
     count,
-    weightMultipliers: doctrine?.weightMultipliers,
+    weightMultipliers: combineWeightMultipliers(
+      doctrine?.weightMultipliers,
+      veteran?.weightMultipliers
+    ),
+    capBonuses: veteran?.capBonuses,
   });
   const carrierIndex = carrierIndexForWave(count, state.waveInStage);
   const spawnPlan = doctrineSpawnPlan({
@@ -2004,7 +2020,7 @@ function updateSpawnQueue(dt) {
 
   state.pendingSpawns = state.waveSpawnQueue.length;
   state.spawnBlockedFor = 0;
-  state.spawnClock = 0.42;
+  state.spawnClock = currentVeteranPressure()?.spawnInterval ?? 0.42;
   syncUI();
 }
 
@@ -3710,6 +3726,17 @@ if (window.location.hostname === '127.0.0.1') {
         cycle: doctrine.cycle,
       } : null;
     })(),
+    veteran: (() => {
+      const veteran = currentVeteranPressure();
+      return veteran ? {
+        tier: veteran.tier,
+        label: veteran.label,
+        cycle: veteran.cycle,
+        spawnInterval: veteran.spawnInterval,
+        capBonuses: { ...veteran.capBonuses },
+      } : null;
+    })(),
+    maxActiveEnemies: MAX_ACTIVE_ENEMIES,
     environment: (() => {
       const environment = currentStageEnvironment();
       return environment ? {
@@ -4127,14 +4154,9 @@ if (window.location.hostname === '127.0.0.1') {
     chooseLifecycleUpgrade() {
       if (!state.awaitingUpgrade) return testSnapshot();
 
-      const upgrade = UPGRADES.find(candidate => {
-        if (candidate.available && !candidate.available()) return false;
-        if (candidate.repeatable) return true;
-        return (state.upgradeLevels[candidate.id] || 0) < candidate.max;
-      });
-
-      if (!upgrade) throw new Error('No upgrade available during lifecycle test');
-      chooseUpgrade(upgrade);
+      const choice = pickUpgradeChoices(1)[0];
+      if (!choice) throw new Error('No upgrade or supply available during lifecycle test');
+      chooseUpgrade(choice);
       return testSnapshot();
     },
 

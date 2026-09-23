@@ -140,7 +140,8 @@ for (let completed = 1; completed <= TOTAL_WAVES; completed++) {
 }
 
 // Twelve complete stages exercise all six doctrines, the first advanced
-// doctrine cycle, and four boss finales. The next state must be B13 / wave 37.
+// doctrine cycle, four boss finales, and land exactly where Veteran I begins.
+// The next state must be B13 / wave 37.
 const longRun = await call('snapshot');
 assert(
   longRun.stage === 13 && longRun.wave === 37 && longRun.waveInStage === 1,
@@ -152,6 +153,18 @@ assert(
   longRun.doctrine.advanced &&
   longRun.doctrine.cycle >= 2,
   'Stage 13 did not retain advanced KIRIK HAT doctrine after the repeat cycle',
+  longRun
+);
+assert(
+  longRun.veteran?.tier === 1 &&
+  longRun.veteran.label === 'VETERAN I' &&
+  longRun.veteran.spawnInterval === 0.37,
+  'Stage 13 did not enter Veteran I pressure',
+  longRun
+);
+assert(
+  longRun.maxActiveEnemies === 4,
+  'Veteran pressure changed the four-enemy active cap',
   longRun
 );
 assert(longRun.running && !longRun.gameOver, 'Long run ended unexpectedly', longRun);
