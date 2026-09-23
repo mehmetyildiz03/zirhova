@@ -21,11 +21,13 @@ page.on('console', msg => {
 });
 
 await page.addInitScript(() => {
+  if (sessionStorage.getItem('zirhova-profile-smoke-seeded')) return;
   localStorage.removeItem('zirhova-profile-v2');
   localStorage.setItem('zirhova-progress-v1', JSON.stringify({
     bestScore: 4321,
     bestStage: 4,
   }));
+  sessionStorage.setItem('zirhova-profile-smoke-seeded', '1');
 });
 
 await page.goto('http://127.0.0.1:4173/', { waitUntil: 'networkidle' });
@@ -54,6 +56,11 @@ if (!overlayVisible) throw new Error('Profile overlay did not open');
 const statsText = await page.locator('#profileStats').innerText();
 if (!statsText.includes('4321') || !statsText.includes('B4')) {
   throw new Error(`Profile UI did not render migrated records: ${statsText}`);
+}
+
+const panelBox = await page.locator('.profile-panel').boundingBox();
+if (!panelBox || panelBox.x < 0 || panelBox.x + panelBox.width > 390 || panelBox.y < 0 || panelBox.y >= 844) {
+  throw new Error(`Profile panel escaped mobile viewport: ${JSON.stringify(panelBox)}`);
 }
 
 const cobalt = page.locator('[data-skin="cobalt"]');
