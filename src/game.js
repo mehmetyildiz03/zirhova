@@ -2598,6 +2598,13 @@ UI.coopBtn?.addEventListener('click', () => resetGame(true));
 document.querySelector('#restartBtn').addEventListener('click', () => resetGame(state.coop));
 UI.pauseBtn?.addEventListener('click', () => togglePause());
 UI.resumeBtn?.addEventListener('click', () => togglePause(false));
+UI.profileBtn?.addEventListener('click', () => {
+  renderProfile();
+  UI.profile?.classList.add('show');
+});
+UI.profileCloseBtn?.addEventListener('click', () => UI.profile?.classList.remove('show'));
+
+renderProfile();
 
 let last = performance.now();
 function frame(now) {
