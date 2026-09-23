@@ -33,7 +33,9 @@ const UI = {
   pause: document.querySelector('#pauseOverlay'),
   pauseBtn: document.querySelector('#pauseBtn'),
   resumeBtn: document.querySelector('#resumeBtn'),
+  startBtn: document.querySelector('#startBtn'),
   coopBtn: document.querySelector('#coopBtn'),
+  checkpointWarning: document.querySelector('#checkpointWarning'),
   controllerStatus: document.querySelector('#controllerStatus'),
   profile: document.querySelector('#profileOverlay'),
   profileBtn: document.querySelector('#profileBtn'),
@@ -50,6 +52,7 @@ const UI = {
   stageSelectSoloBtn: document.querySelector('#stageSelectSoloBtn'),
   stageSelectCoopBtn: document.querySelector('#stageSelectCoopBtn'),
   stageSelectModeText: document.querySelector('#stageSelectModeText'),
+  stageSelectWarning: document.querySelector('#stageSelectWarning'),
 };
 
 const TILE = 48;
@@ -1163,12 +1166,38 @@ let stageSelectCoop = false;
 
 function refreshRunEntryUI() {
   const checkpoint = readCampaignCheckpoint();
+  const customReady = Boolean(CUSTOM_MODE && readCustomLevel());
+
+  if (UI.startBtn) {
+    UI.startBtn.textContent = customReady
+      ? '1 OYUNCU · ÖZEL'
+      : checkpoint
+        ? 'YENİ TAM KOŞU'
+        : '1 OYUNCU';
+    UI.startBtn.classList.toggle('secondary', Boolean(checkpoint));
+  }
+
+  if (UI.coopBtn) {
+    UI.coopBtn.textContent = customReady
+      ? '2 OYUNCU · ÖZEL'
+      : checkpoint
+        ? 'YENİ 2 OYUNCU'
+        : '2 OYUNCU';
+  }
 
   if (UI.continueBtn) {
     UI.continueBtn.hidden = !checkpoint;
     UI.continueBtn.textContent = checkpoint
       ? `DEVAM · B${checkpoint.stage}`
       : 'DEVAM';
+    UI.continueBtn.classList.toggle('secondary', !checkpoint);
+  }
+
+  if (UI.checkpointWarning) {
+    UI.checkpointWarning.hidden = !checkpoint;
+    UI.checkpointWarning.textContent = checkpoint
+      ? 'Yeni tam koşu veya yeni 2 oyuncu oyunu mevcut DEVAM noktasını siler.'
+      : '';
   }
 
   if (UI.stageSelectBtn) {
@@ -1179,10 +1208,19 @@ function refreshRunEntryUI() {
 function renderStageSelect() {
   if (!UI.stageSelectGrid) return;
 
+  const checkpoint = readCampaignCheckpoint();
+
   if (UI.stageSelectModeText) {
     UI.stageSelectModeText.textContent = stageSelectCoop
-      ? '2 OYUNCU · SERBEST KONUŞLANMA'
-      : '1 OYUNCU · SERBEST KONUŞLANMA';
+      ? '2 OYUNCU · BÖLÜM SEÇİMİ'
+      : '1 OYUNCU · BÖLÜM SEÇİMİ';
+  }
+
+  if (UI.stageSelectWarning) {
+    UI.stageSelectWarning.hidden = !checkpoint;
+    UI.stageSelectWarning.textContent = checkpoint
+      ? `DEVAM · B${checkpoint.stage} korunur. Yalnız B1 ile yeni tam koşu başlatırsan bu checkpoint silinir.`
+      : '';
   }
 
   UI.stageSelectSoloBtn?.classList.toggle('selected', !stageSelectCoop);
@@ -1190,11 +1228,15 @@ function renderStageSelect() {
 
   UI.stageSelectGrid.innerHTML = selectableStages(progress.bestStage)
     .map(stage => {
-      const recordClass = stage === 1 ? 'TAM KOŞU' : 'SERBEST';
+      const recordClass = stage === 1 ? 'YENİ TAM KOŞU' : 'SERBEST';
+      const checkpointRisk = stage === 1 && checkpoint
+        ? '<small class="stage-card-warning">DEVAM SİLİNİR</small>'
+        : '';
       return `
         <button type="button" class="stage-card" data-stage="${stage}">
           <strong>B${stage}</strong>
           <small>${recordClass}</small>
+          ${checkpointRisk}
         </button>
       `;
     })
@@ -1434,6 +1476,7 @@ function resetGame(coopMode = state.coop, options = {}) {
     runStartStage: source.stage,
   });
 
+  document.body.classList.remove('menu-open');
   document.body.dataset.playMode = coop ? 'coop' : 'solo';
   document.body.dataset.runClass = runClass;
 

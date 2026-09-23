@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
-<body>
+<body class="menu-open">
   <main class="app-shell">
     <header class="topbar">
       <div>
@@ -35,19 +35,32 @@
     <section class="game-wrap">
       <canvas id="game" width="768" height="768" aria-label="ZIRHOVA oyun alanı"></canvas>
 
-      <div class="overlay show" id="introOverlay">
-        <div class="panel">
+      <div class="overlay show entry-overlay" id="introOverlay">
+        <div class="panel entry-panel">
+          <div class="entry-brand">ZIRHOVA</div>
           <div class="kicker">ORİJİNAL TOP-DOWN TANK ARCADE</div>
           <h2>Üssü koru. Hattı kır.</h2>
-          <p>Tek oyuncuda WASD veya ok tuşlarıyla hareket et, <strong>Space / Enter</strong> ile ateş et. Mobilde soldaki yön pedi ve sağdaki ATEŞ düğmesi P1'i kontrol eder. Yerel co-op'ta P1 = WASD/Space, P2 = ok tuşları/Enter; iki gamepad de desteklenir.</p>
-          <div class="panel-actions">
+          <p class="entry-lead">Üssünü savun, düşman hattını parçala ve bölümler boyunca tankını geliştir.</p>
+
+          <div class="entry-primary" aria-label="Ana oyun seçenekleri">
+            <button id="continueBtn" hidden>DEVAM</button>
             <button id="startBtn">1 OYUNCU</button>
-            <button id="coopBtn" class="secondary">2 OYUNCU</button>
-            <button id="continueBtn" class="secondary" hidden>DEVAM</button>
-            <button id="stageSelectBtn" class="secondary" hidden>BÖLÜM SEÇ</button>
-            <button id="profileBtn" class="secondary">PROFİL</button>
-            <button id="installBtn" class="secondary" hidden>TELEFONA YÜKLE</button>
           </div>
+
+          <p id="checkpointWarning" class="entry-warning" hidden></p>
+
+          <div class="entry-secondary" aria-label="Diğer oyun seçenekleri">
+            <button id="coopBtn" class="secondary">2 OYUNCU</button>
+            <button id="stageSelectBtn" class="secondary" hidden>BÖLÜM SEÇ</button>
+          </div>
+          <p class="entry-coop-note">2 oyuncu yereldir; P2 için klavye veya ikinci gamepad kullanılır.</p>
+
+          <div class="entry-tertiary" aria-label="Profil ve kurulum">
+            <button id="profileBtn" class="secondary tertiary">PROFİL</button>
+            <button id="installBtn" class="secondary tertiary" hidden>TELEFONA YÜKLE</button>
+          </div>
+
+          <p class="entry-controls-note">Masaüstü: WASD / ok tuşları + Space / Enter · Mobil: yön pedi + ATEŞ</p>
           <p id="controllerStatus" class="controller-status">GAMEPAD: bağlı değil</p>
           <p id="installHint" class="install-hint" hidden></p>
         </div>
@@ -109,12 +122,13 @@
         <div class="panel stage-select-panel">
           <div class="kicker">KONUŞLANMA NOKTASI</div>
           <h2>Bölüm seç</h2>
-          <p>B1 tam koşu rekoruna dahildir. B2 ve sonrası standart teçhizatla başlar ve ayrı serbest konuşlanma rekoruna yazılır.</p>
+          <p>B1 yeni bir tam koşu başlatır. B2 ve sonrası standart teçhizatla başlar ve ayrı serbest konuşlanma rekoruna yazılır.</p>
           <div class="stage-mode-row">
             <button id="stageSelectSoloBtn" type="button" class="secondary selected">1 OYUNCU</button>
             <button id="stageSelectCoopBtn" type="button" class="secondary">2 OYUNCU</button>
           </div>
-          <p id="stageSelectModeText" class="stage-mode-text">1 OYUNCU · SERBEST KONUŞLANMA</p>
+          <p id="stageSelectModeText" class="stage-mode-text">1 OYUNCU · BÖLÜM SEÇİMİ</p>
+          <p id="stageSelectWarning" class="stage-select-warning" hidden></p>
           <div class="stage-select-grid" id="stageSelectGrid"></div>
           <button id="stageSelectCloseBtn" type="button">KAPAT</button>
         </div>

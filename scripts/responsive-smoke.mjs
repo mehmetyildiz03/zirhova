@@ -33,6 +33,8 @@ for (const testCase of cases) {
   });
   const page = await context.newPage();
   await page.goto('http://127.0.0.1:4173/', { waitUntil: 'networkidle' });
+  await page.click('#startBtn');
+  await page.waitForTimeout(80);
 
   const metrics = await page.evaluate(() => {
     const box = selector => {
