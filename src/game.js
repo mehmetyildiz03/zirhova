@@ -7,6 +7,7 @@ import { NAV_STEP, isNavAlignedStart, navStartCandidates } from './navigationSys
 import { waveEnemyCount, buildEnemyRoster, carrierIndexForWave, shouldDropArsenal } from './balanceSystem.js';
 import { BOSS_TYPE, isBossWave, bossStats, bossPhase, bossDamageResult } from './bossSystem.js';
 import { createAudioSystem } from './audioSystem.js';
+import { PROFILE_STORAGE_KEY, LEGACY_PROGRESS_KEY, ACHIEVEMENTS, TANK_SKINS, migrateProfile, applyProfileEvent, selectSkin, skinById, unlockedSkinIds, achievementById } from './progressionSystem.js';
 
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
@@ -33,6 +34,12 @@ const UI = {
   resumeBtn: document.querySelector('#resumeBtn'),
   coopBtn: document.querySelector('#coopBtn'),
   controllerStatus: document.querySelector('#controllerStatus'),
+  profile: document.querySelector('#profileOverlay'),
+  profileBtn: document.querySelector('#profileBtn'),
+  profileCloseBtn: document.querySelector('#profileCloseBtn'),
+  profileStats: document.querySelector('#profileStats'),
+  profileSkins: document.querySelector('#profileSkins'),
+  profileAchievements: document.querySelector('#profileAchievements'),
 };
 
 const TILE = 48;
@@ -736,11 +743,12 @@ class Tank extends RectEntity {
   }
 
   draw() {
+    const selectedSkin = skinById(progress.selectedSkin);
     const color = this.team === 'player'
-      ? (this.playerSlot === 2 ? COLORS.player2 : COLORS.player)
+      ? (this.playerSlot === 2 ? COLORS.player2 : selectedSkin.primary)
       : this.spec.color;
     const dark = this.team === 'player'
-      ? (this.playerSlot === 2 ? COLORS.player2Dark : COLORS.playerDark)
+      ? (this.playerSlot === 2 ? COLORS.player2Dark : selectedSkin.dark)
       : this.spec.dark;
 
     ctx.save();
@@ -863,8 +871,9 @@ class Tank extends RectEntity {
     const y = this.y - 7;
     ctx.fillStyle = 'rgba(0,0,0,.55)';
     ctx.fillRect(x, y, width, 4);
+    const selectedSkin = skinById(progress.selectedSkin);
     ctx.fillStyle = this.team === 'player'
-      ? (this.playerSlot === 2 ? COLORS.player2 : COLORS.player)
+      ? (this.playerSlot === 2 ? COLORS.player2 : selectedSkin.primary)
       : '#f1f4f6';
     ctx.fillRect(x, y, width * clamp(this.hp / this.maxHp, 0, 1), 4);
   }
@@ -1078,7 +1087,7 @@ class Base extends RectEntity {
   }
 }
 
-const progress = loadProgress();
+let progress = loadProgress();
 
 function readCustomLevel() {
   if (!CUSTOM_MODE) return null;
