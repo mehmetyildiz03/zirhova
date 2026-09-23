@@ -2611,22 +2611,97 @@ requestAnimationFrame(frame);
 
 function loadProgress() {
   try {
-    const raw = localStorage.getItem('zirhova-progress-v1');
-    if (!raw) return { bestScore: 0, bestStage: 1 };
-    const parsed = JSON.parse(raw);
-    return {
-      bestScore: Number(parsed.bestScore) || 0,
-      bestStage: Math.max(1, Number(parsed.bestStage) || 1),
-    };
+    const profileRaw = localStorage.getItem(PROFILE_STORAGE_KEY);
+    const legacyRaw = localStorage.getItem(LEGACY_PROGRESS_KEY);
+    const profile = profileRaw ? JSON.parse(profileRaw) : null;
+    const legacy = legacyRaw ? JSON.parse(legacyRaw) : null;
+    const migrated = migrateProfile(profile, legacy);
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(migrated));
+    return migrated;
   } catch {
-    return { bestScore: 0, bestStage: 1 };
+    return migrateProfile(null, null);
   }
 }
 
 function saveProgress(value) {
   try {
-    localStorage.setItem('zirhova-progress-v1', JSON.stringify(value));
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(value));
   } catch {}
+}
+
+function trackProgress(event, { announce = true } = {}) {
+  const result = applyProfileEvent(progress, event);
+  progress = result.profile;
+  saveProgress(progress);
+
+  if (announce && result.unlockedAchievements.length) {
+    const achievement = achievementById(result.unlockedAchievements[0]);
+    if (achievement) showNotice(`BAŞARI · ${achievement.title}`, 1.2);
+  } else if (announce && result.unlockedSkins.length) {
+    const skin = skinById(result.unlockedSkins[0]);
+    showNotice(`BOYA AÇILDI · ${skin.name}`, 1.15);
+  }
+
+  renderProfile();
+  syncUI();
+  return result;
+}
+
+function renderProfile() {
+  if (!UI.profileStats || !UI.profileSkins || !UI.profileAchievements) return;
+
+  UI.profileStats.innerHTML = [
+    ['EN İYİ SKOR', progress.bestScore],
+    ['EN İYİ BÖLÜM', `B${progress.bestStage}`],
+    ['KOŞU', progress.runs],
+    ['İMHA', progress.enemiesDefeated],
+    ['BOSS', progress.bossesDefeated],
+    ['BÖLÜM TAMAMLAMA', progress.stagesCompleted],
+  ].map(([label, value]) => (
+    `<div class="profile-stat"><span>${label}</span><strong>${value}</strong></div>`
+  )).join('');
+
+  const unlocked = new Set(unlockedSkinIds(progress));
+  UI.profileSkins.innerHTML = TANK_SKINS.map(skin => {
+    const isUnlocked = unlocked.has(skin.id);
+    const selected = progress.selectedSkin === skin.id;
+    return `
+      <button
+        type="button"
+        class="skin-card${selected ? ' selected' : ''}"
+        data-skin="${skin.id}"
+        ${isUnlocked ? '' : 'disabled'}
+        aria-pressed="${selected ? 'true' : 'false'}"
+      >
+        <span class="skin-swatch" style="--skin-primary:${skin.primary};--skin-dark:${skin.dark}"></span>
+        <strong>${skin.name}</strong>
+        <small>${isUnlocked ? (selected ? 'SEÇİLİ' : 'KULLAN') : skin.description}</small>
+      </button>
+    `;
+  }).join('');
+
+  const earned = new Set(progress.achievementIds);
+  UI.profileAchievements.innerHTML = ACHIEVEMENTS.map(item => `
+    <div class="achievement-card${earned.has(item.id) ? ' earned' : ''}">
+      <span class="achievement-mark">${earned.has(item.id) ? '✓' : '·'}</span>
+      <div>
+        <strong>${item.title}</strong>
+        <small>${item.description}</small>
+      </div>
+    </div>
+  `).join('');
+
+  UI.profileSkins.querySelectorAll('[data-skin]').forEach(button => {
+    button.addEventListener('click', () => {
+      const result = selectSkin(progress, button.dataset.skin);
+      if (!result.changed) return;
+      progress = result.profile;
+      saveProgress(progress);
+      renderProfile();
+      syncUI();
+      tone(720, 0.07, 'square', 0.018);
+    });
+  });
 }
 
 // PWA installation helpers
