@@ -191,6 +191,7 @@ export function applyProfileEvent(profile, event = {}) {
     case 'enemy-defeated':
       next.enemiesDefeated += 1;
       if (event.boss) next.bossesDefeated += 1;
+      next.bestScore = Math.max(next.bestScore, int(event.score, 0));
       break;
 
     case 'stage-completed':
