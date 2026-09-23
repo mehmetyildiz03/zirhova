@@ -43,6 +43,7 @@
           <div class="panel-actions">
             <button id="startBtn">1 OYUNCU</button>
             <button id="coopBtn" class="secondary">2 OYUNCU</button>
+            <button id="profileBtn" class="secondary">PROFİL</button>
             <button id="installBtn" class="secondary" hidden>TELEFONA YÜKLE</button>
           </div>
           <p id="controllerStatus" class="controller-status">GAMEPAD: bağlı değil</p>
@@ -76,6 +77,28 @@
           <button id="resumeBtn">DEVAM ET</button>
         </div>
       </div>
+
+      <div class="overlay" id="profileOverlay">
+        <div class="panel profile-panel">
+          <div class="kicker">KALICI PROFİL</div>
+          <h2>Komuta Kaydı</h2>
+          <p class="profile-intro">Rekorların, başarıların ve açtığın kozmetik tank boyaları bu cihazda saklanır. Boyalar yalnız görünümü değiştirir.</p>
+
+          <div class="profile-stats" id="profileStats"></div>
+
+          <section class="profile-section" aria-labelledby="skinsTitle">
+            <h3 id="skinsTitle">Tank boyaları</h3>
+            <div class="skin-grid" id="profileSkins"></div>
+          </section>
+
+          <section class="profile-section" aria-labelledby="achievementsTitle">
+            <h3 id="achievementsTitle">Başarılar</h3>
+            <div class="achievement-grid" id="profileAchievements"></div>
+          </section>
+
+          <button id="profileCloseBtn" type="button">KAPAT</button>
+        </div>
+      </div>
     </section>
 
     <section class="controls" id="touchControls" aria-label="Dokunmatik oyun kontrolleri">
@@ -95,7 +118,7 @@
     </section>
 
     <footer class="footer-note">
-      <span>v0.11 — prosedürel ses / oyun hissi</span>
+      <span>v0.12 — profil / başarı / kozmetik</span>
       <span id="bestRun">En iyi: B1 · 0 puan</span>
       <a class="editor-link" href="./editor.html">HARİTA EDİTÖRÜ</a>
     </footer>
