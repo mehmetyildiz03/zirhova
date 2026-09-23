@@ -421,6 +421,76 @@ canvas {
   margin: 16px auto 0;
 }
 
+#stageSelectOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 31;
+  padding: 12px;
+}
+
+.stage-select-panel {
+  width: min(96%, 650px);
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+}
+
+.stage-mode-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+
+.panel .stage-mode-row button.selected {
+  border-color: #e6d35a;
+  color: #f6e783;
+  box-shadow: inset 0 0 0 1px rgba(230,211,90,.22);
+}
+
+.stage-mode-text {
+  margin: 0 0 10px !important;
+  color: #8396a9 !important;
+  font-size: 10px !important;
+  letter-spacing: .08em;
+  font-weight: 900;
+}
+
+.stage-select-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+
+.panel .stage-card {
+  min-width: 0;
+  min-height: 76px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  padding: 8px 5px;
+  background: linear-gradient(180deg, #14202c, #0e171f);
+  color: #eef4f7;
+  border: 1px solid #334a60;
+}
+
+.stage-card strong {
+  font-size: 17px;
+  color: #f1dc71;
+}
+
+.stage-card small {
+  font-size: 8px;
+  color: #8799aa;
+  letter-spacing: .06em;
+}
+
+#stageSelectCloseBtn {
+  display: block;
+  margin: 0 auto;
+}
+
 /* Touch controls are shown for coarse pointers and compact layouts. */
 .controls {
   display: none;
@@ -683,6 +753,18 @@ canvas {
 
   .achievement-grid {
     grid-template-columns: 1fr;
+  }
+
+  .stage-select-panel {
+    width: 100%;
+  }
+
+  .stage-select-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .panel .stage-card {
+    min-height: 64px;
   }
 }
 
