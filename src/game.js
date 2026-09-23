@@ -1554,6 +1554,11 @@ function pickUpgradeChoices(count) {
 }
 
 function chooseUpgrade(upgrade) {
+  trackProgress({
+    type: 'stage-completed',
+    nextStage: state.stage + 1,
+  });
+
   upgrade.apply();
   if (!upgrade.repeatable) {
     state.upgradeLevels[upgrade.id] = (state.upgradeLevels[upgrade.id] || 0) + 1;
@@ -1592,6 +1597,7 @@ function applyPowerup(type) {
   if (type === 'arsenal') {
     if (state.weaponTier < MAX_WEAPON_TIER) {
       state.weaponTier = upgradeWeaponTier(state.weaponTier);
+      trackProgress({ type: 'weapon-tier', tier: state.weaponTier });
       notice = `NAMLU ${weaponProfile(state.weaponTier).label}`;
     } else {
       state.score += 250;
@@ -1747,6 +1753,10 @@ function handleDeaths() {
     if (!enemy.dead || enemy.counted) continue;
     enemy.counted = true;
     state.score += enemy.spec.score;
+    trackProgress({
+      type: 'enemy-defeated',
+      boss: Boolean(enemy.spec?.boss),
+    });
     if (enemy.carrier) spawnPowerup(enemy.cx, enemy.cy);
     burst(
       enemy.cx,
@@ -2382,7 +2392,8 @@ function syncUI() {
     UI.remaining.textContent = active + state.pendingSpawns;
   }
   if (UI.bestRun) {
-    UI.bestRun.textContent = `En iyi: B${progress.bestStage} · ${progress.bestScore} puan`;
+    UI.bestRun.textContent =
+      `En iyi: B${progress.bestStage} · ${progress.bestScore} puan · ${progress.achievementIds.length}/${ACHIEVEMENTS.length} başarı`;
   }
 }
 
@@ -2391,9 +2402,12 @@ function endGame(reason) {
   state.gameOver = true;
   clearAllInput();
 
-  progress.bestScore = Math.max(progress.bestScore, state.score);
-  progress.bestStage = Math.max(progress.bestStage, state.stage);
-  saveProgress(progress);
+  trackProgress({
+    type: 'run-ended',
+    score: state.score,
+    stage: state.stage,
+    coop: state.coop,
+  });
 
   UI.gameOverTitle.textContent = reason;
   UI.gameOverText.textContent =
