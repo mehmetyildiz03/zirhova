@@ -21,6 +21,9 @@ page.on('console', msg => {
 });
 
 await page.addInitScript(() => {
+  if (sessionStorage.getItem('zirhova-supply-smoke-seeded') === '1') return;
+  sessionStorage.setItem('zirhova-supply-smoke-seeded', '1');
+
   localStorage.setItem('zirhova-profile-v2', JSON.stringify({
     version: 4,
     bestStage: 13,
