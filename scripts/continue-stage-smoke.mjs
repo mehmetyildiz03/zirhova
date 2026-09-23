@@ -113,6 +113,8 @@ const checkpoint = snap.checkpoint;
 assert(checkpoint.score === snap.score, 'Checkpoint score does not match live score', { checkpoint, snap });
 assert(checkpoint.lives === snap.lives, 'Checkpoint lives do not match live state', { checkpoint, snap });
 assert(checkpoint.baseHp === snap.baseHp, 'Checkpoint base HP does not match live state', { checkpoint, snap });
+assert(checkpoint.runEnemiesDefeated === snap.runEnemiesDefeated && checkpoint.runEnemiesDefeated > 0, 'Checkpoint did not preserve run kill count', { checkpoint, snap });
+assert(checkpoint.runBossesDefeated === snap.runBossesDefeated, 'Checkpoint did not preserve run boss count', { checkpoint, snap });
 
 // 3) Reload app and resume exact checkpoint through the actual DEVAM button.
 await page.reload({ waitUntil: 'networkidle' });
@@ -129,6 +131,8 @@ assert(snap.stage === checkpoint.stage && snap.wave === checkpoint.wave, 'Checkp
 assert(snap.score === checkpoint.score, 'Checkpoint score was not restored', { checkpoint, snap });
 assert(snap.lives === checkpoint.lives, 'Checkpoint lives were not restored', { checkpoint, snap });
 assert(snap.baseHp === checkpoint.baseHp, 'Checkpoint base HP was not restored', { checkpoint, snap });
+assert(snap.runEnemiesDefeated === checkpoint.runEnemiesDefeated, 'Run kill count was not restored with checkpoint', { checkpoint, snap });
+assert(snap.runBossesDefeated === checkpoint.runBossesDefeated, 'Run boss count was not restored with checkpoint', { checkpoint, snap });
 
 // 4) Continued campaign score must update full-run record, not deployment record.
 await call('setScore', 15000);

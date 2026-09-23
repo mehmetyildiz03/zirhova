@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.13-continue-stage-records';
+const CACHE = 'zirhova-v0.14-run-summary';
 const ASSETS = [
   './',
   './index.html',

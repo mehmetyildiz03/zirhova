@@ -27,6 +27,11 @@ const UI = {
   gameOver: document.querySelector('#gameOverOverlay'),
   gameOverTitle: document.querySelector('#gameOverTitle'),
   gameOverText: document.querySelector('#gameOverText'),
+  gameOverRunType: document.querySelector('#gameOverRunType'),
+  gameOverStats: document.querySelector('#gameOverStats'),
+  gameOverRecord: document.querySelector('#gameOverRecord'),
+  gameOverUnlocks: document.querySelector('#gameOverUnlocks'),
+  gameOverUnlockList: document.querySelector('#gameOverUnlockList'),
   upgrade: document.querySelector('#upgradeOverlay'),
   upgradeTitle: document.querySelector('#upgradeTitle'),
   upgradeChoices: document.querySelector('#upgradeChoices'),
@@ -1143,6 +1148,8 @@ function writeCampaignCheckpoint() {
     baseHp: state.base?.hp ?? MAX_BASE_HP,
     weaponTier: state.weaponTier,
     arsenalMisses: state.arsenalMisses,
+    runEnemiesDefeated: state.runEnemiesDefeated,
+    runBossesDefeated: state.runBossesDefeated,
     modifiers: state.modifiers,
     upgradeLevels: state.upgradeLevels,
     coop: state.coop,
@@ -1299,6 +1306,11 @@ const state = {
   respawnClock: 0,
   runClass: 'campaign',
   runStartStage: 1,
+  runResumed: false,
+  runEnemiesDefeated: 0,
+  runBossesDefeated: 0,
+  runUnlockedAchievements: [],
+  runUnlockedSkins: [],
 };
 
 function currentLevel() {
@@ -1474,6 +1486,11 @@ function resetGame(coopMode = state.coop, options = {}) {
     respawnClock: 0,
     runClass,
     runStartStage: source.stage,
+    runResumed: Boolean(checkpoint),
+    runEnemiesDefeated: Math.max(0, Number(source.runEnemiesDefeated) || 0),
+    runBossesDefeated: Math.max(0, Number(source.runBossesDefeated) || 0),
+    runUnlockedAchievements: [],
+    runUnlockedSkins: [],
   });
 
   document.body.classList.remove('menu-open');
@@ -1965,10 +1982,13 @@ function handleDeaths() {
     if (!enemy.dead || enemy.counted) continue;
     enemy.counted = true;
     state.score += enemy.spec.score;
+    const bossDefeated = Boolean(enemy.spec?.boss);
+    state.runEnemiesDefeated += 1;
+    if (bossDefeated) state.runBossesDefeated += 1;
     if (state.runClass !== 'custom') {
       trackProgress({
         type: 'enemy-defeated',
-        boss: Boolean(enemy.spec?.boss),
+        boss: bossDefeated,
       });
     }
     if (enemy.carrier) spawnPowerup(enemy.cx, enemy.cy);
@@ -2611,6 +2631,98 @@ function syncUI() {
   }
 }
 
+function runStartSummaryLabel() {
+  if (state.runClass === 'custom') return 'ÖZEL HARİTA';
+  if (state.runResumed) return `DEVAM B${state.runStartStage}`;
+  return `B${state.runStartStage}`;
+}
+
+function renderRunSummary(reason, beforeProfile) {
+  const modeLabel = state.coop ? '2 OYUNCU' : '1 OYUNCU';
+  const runLabel = runRecordLabel(state.runClass, state.runStartStage);
+
+  if (UI.gameOverTitle) UI.gameOverTitle.textContent = reason;
+  if (UI.gameOverRunType) UI.gameOverRunType.textContent = `${runLabel} · ${modeLabel}`;
+
+  if (UI.gameOverStats) {
+    const stats = [
+      ['BAŞLANGIÇ', runStartSummaryLabel(), 'start'],
+      ['ULAŞILAN', `B${state.stage}`, 'stage'],
+      ['DALGA', `${state.waveInStage}/${WAVES_PER_STAGE}`, 'wave'],
+      ['SKOR', state.score, 'score'],
+      ['İMHA', state.runEnemiesDefeated, 'kills'],
+      ['BOSS', state.runBossesDefeated, 'bosses'],
+    ];
+
+    UI.gameOverStats.innerHTML = stats.map(([label, value, key]) => `
+      <div class="run-summary-stat" data-summary="${key}">
+        <span>${label}</span>
+        <strong>${value}</strong>
+      </div>
+    `).join('');
+  }
+
+  const newRecords = [];
+  let recordText = '';
+  let contextText = '';
+
+  if (state.runClass === 'deployment') {
+    if (state.score > beforeProfile.bestDeploymentScore) {
+      newRecords.push('YENİ SERBEST REKORU');
+    }
+    recordText = newRecords.length
+      ? newRecords.join(' · ')
+      : `SERBEST REKOR · ${progress.bestDeploymentScore}`;
+    contextText = 'Bu skor SERBEST konuşlanma rekoruna yazılır; TAM KOŞU rekorunu etkilemez.';
+  } else if (state.runClass === 'custom') {
+    recordText = 'REKOR DIŞI · ÖZEL HARİTA';
+    contextText = 'Özel harita koşuları resmî TAM KOŞU ve SERBEST rekorlarını etkilemez.';
+  } else {
+    if (state.score > beforeProfile.bestScore) newRecords.push('YENİ TAM KOŞU REKORU');
+    if (state.coop && state.score > beforeProfile.bestCoopScore) {
+      newRecords.push('YENİ CO-OP REKORU');
+    }
+    if (!state.coop && state.score > beforeProfile.bestSoloScore) {
+      newRecords.push('YENİ SOLO REKORU');
+    }
+
+    recordText = newRecords.length
+      ? newRecords.join(' · ')
+      : `TAM KOŞU REKORU · ${progress.bestScore}`;
+    contextText = state.coop
+      ? 'Bu skor TAM KOŞU ve CO-OP tam koşu kayıtlarında değerlendirilir.'
+      : 'Bu skor TAM KOŞU ve SOLO tam koşu kayıtlarında değerlendirilir.';
+  }
+
+  if (UI.gameOverRecord) {
+    UI.gameOverRecord.textContent = recordText;
+    UI.gameOverRecord.classList.toggle('new-record', newRecords.length > 0);
+    UI.gameOverRecord.classList.toggle('unranked', state.runClass === 'custom');
+  }
+  if (UI.gameOverText) UI.gameOverText.textContent = contextText;
+
+  const unlocks = [
+    ...state.runUnlockedAchievements
+      .map(id => achievementById(id))
+      .filter(Boolean)
+      .map(item => ({ type: 'BAŞARI', name: item.title })),
+    ...state.runUnlockedSkins
+      .map(id => skinById(id))
+      .filter(Boolean)
+      .map(item => ({ type: 'BOYA', name: item.name })),
+  ];
+
+  if (UI.gameOverUnlocks && UI.gameOverUnlockList) {
+    UI.gameOverUnlocks.hidden = unlocks.length === 0;
+    UI.gameOverUnlockList.innerHTML = unlocks.map(item => `
+      <div class="run-unlock-item">
+        <span>${item.type}</span>
+        <strong>${item.name}</strong>
+      </div>
+    `).join('');
+  }
+}
+
 function endGame(reason) {
   if (state.gameOver) return;
 
@@ -2618,17 +2730,16 @@ function endGame(reason) {
   state.gameOver = true;
   clearAllInput();
 
+  const beforeProfile = progress;
   trackProgress({
     type: 'run-ended',
     score: state.score,
     stage: state.stage,
     coop: state.coop,
     runClass: state.runClass,
-  });
+  }, { announce: false });
 
-  UI.gameOverTitle.textContent = reason;
-  UI.gameOverText.textContent =
-    `${runRecordLabel(state.runClass, state.runStartStage)} • Skor ${state.score} • Bölüm ${state.stage} • Dalga ${state.waveInStage}/${WAVES_PER_STAGE}`;
+  renderRunSummary(reason, beforeProfile);
   UI.gameOver.classList.add('show');
   syncUI();
 }
@@ -2908,6 +3019,13 @@ function trackProgress(event, { announce = true } = {}) {
   progress = result.profile;
   saveProgress(progress);
 
+  for (const id of result.unlockedAchievements) {
+    if (!state.runUnlockedAchievements.includes(id)) state.runUnlockedAchievements.push(id);
+  }
+  for (const id of result.unlockedSkins) {
+    if (!state.runUnlockedSkins.includes(id)) state.runUnlockedSkins.push(id);
+  }
+
   if (announce && (result.unlockedAchievements.length || result.unlockedSkins.length)) {
     const parts = [];
     const achievement = achievementById(result.unlockedAchievements[0]);
@@ -3096,6 +3214,11 @@ if (window.location.hostname === '127.0.0.1') {
     },
     runClass: state.runClass,
     runStartStage: state.runStartStage,
+    runResumed: state.runResumed,
+    runEnemiesDefeated: state.runEnemiesDefeated,
+    runBossesDefeated: state.runBossesDefeated,
+    runUnlockedAchievements: [...state.runUnlockedAchievements],
+    runUnlockedSkins: [...state.runUnlockedSkins],
     checkpoint: readCampaignCheckpoint(),
     running: state.running,
     gameOver: state.gameOver,

@@ -67,11 +67,18 @@
       </div>
 
       <div class="overlay" id="gameOverOverlay">
-        <div class="panel">
-          <div class="kicker">SAVUNMA HATTI DÜŞTÜ</div>
+        <div class="panel game-over-panel">
+          <div class="kicker">KOŞU RAPORU</div>
           <h2 id="gameOverTitle">Görev başarısız</h2>
-          <p id="gameOverText">Skor: 0</p>
-          <div class="panel-actions">
+          <div id="gameOverRunType" class="run-summary-type">TAM KOŞU · 1 OYUNCU</div>
+          <div id="gameOverStats" class="run-summary-grid" aria-label="Koşu istatistikleri"></div>
+          <div id="gameOverRecord" class="run-record-banner">REKOR</div>
+          <p id="gameOverText" class="run-record-context"></p>
+          <section id="gameOverUnlocks" class="run-unlocks" hidden aria-labelledby="gameOverUnlocksTitle">
+            <h3 id="gameOverUnlocksTitle">Yeni açılanlar</h3>
+            <div id="gameOverUnlockList" class="run-unlock-list"></div>
+          </section>
+          <div class="panel-actions game-over-actions">
             <button id="restartBtn">YENİDEN BAŞLA</button>
             <button id="gameOverProfileBtn" class="secondary">PROFİL</button>
           </div>
@@ -152,7 +159,7 @@
     </section>
 
     <footer class="footer-note">
-      <span>v0.13 — devam / bölüm seç / rekorlar</span>
+      <span>v0.14 — koşu raporu / rekor sunumu</span>
       <span id="bestRun">En iyi: B1 · 0 puan</span>
       <a class="editor-link" href="./editor.html">HARİTA EDİTÖRÜ</a>
     </footer>

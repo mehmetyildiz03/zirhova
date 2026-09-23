@@ -73,6 +73,8 @@ export function deploymentLoadout(stage, coop = false) {
     modifiers,
     upgradeLevels,
     coop: Boolean(coop),
+    runEnemiesDefeated: 0,
+    runBossesDefeated: 0,
     runClass: safeStage === 1 ? 'campaign' : 'deployment',
     runStartStage: safeStage,
   };
@@ -94,6 +96,8 @@ export function createCheckpoint(source = {}) {
     weaponTier: finiteInt(source.weaponTier, 1, 1, 3),
     arsenalMisses: finiteInt(source.arsenalMisses, 0, 0, 10),
     coop: Boolean(source.coop),
+    runEnemiesDefeated: finiteInt(source.runEnemiesDefeated, 0),
+    runBossesDefeated: finiteInt(source.runBossesDefeated, 0),
     modifiers: {
       speed: finiteNumber(source.modifiers?.speed, 1, 0.7, 2),
       fireRate: finiteNumber(source.modifiers?.fireRate, 1, 0.35, 1.3),

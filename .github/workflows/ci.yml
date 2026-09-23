@@ -89,6 +89,7 @@ jobs:
           node scripts/audio-smoke.mjs
           node scripts/profile-smoke.mjs
           node scripts/continue-stage-smoke.mjs
+          node scripts/run-summary-smoke.mjs
           node scripts/long-run-smoke.mjs
           node scripts/performance-stress-smoke.mjs
           node scripts/mobile-touch-smoke.mjs
