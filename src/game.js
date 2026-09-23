@@ -1368,24 +1368,44 @@ function gridEntityPosition([tx, ty], size) {
   };
 }
 
-function resetGame(coopMode = state.coop) {
+function resetGame(coopMode = state.coop, options = {}) {
   audio.unlock();
   state.runToken++;
   nextEnemyTrafficId = 1;
   clearAllInput();
+
   const customLevel = readCustomLevel();
-  const coop = Boolean(coopMode);
+  const requestedCheckpoint = options.checkpoint
+    ? normalizeCheckpoint(options.checkpoint, progress.bestStage)
+    : null;
+
+  const requestedStage = customLevel
+    ? 1
+    : Math.max(1, Math.min(progress.bestStage, Number(options.startStage) || 1));
+
+  const checkpoint = customLevel ? null : requestedCheckpoint;
+  const coop = checkpoint ? checkpoint.coop : Boolean(coopMode);
+  const source = checkpoint || deploymentLoadout(requestedStage, coop);
+  const runClass = customLevel
+    ? 'custom'
+    : checkpoint
+      ? 'campaign'
+      : source.runClass;
+
+  if (!customLevel && !options.preserveCheckpoint && !checkpoint) {
+    clearCampaignCheckpoint();
+  }
 
   Object.assign(state, {
     running: true,
     gameOver: false,
     paused: false,
     awaitingUpgrade: false,
-    score: 0,
-    stage: 1,
-    wave: 1,
+    score: source.score,
+    stage: source.stage,
+    wave: source.wave,
     waveInStage: 1,
-    lives: coop ? 5 : 3,
+    lives: source.lives,
     enemies: [],
     bullets: [],
     particles: [],
@@ -1393,11 +1413,11 @@ function resetGame(coopMode = state.coop) {
     pendingSpawns: 0,
     notice: '',
     noticeTimer: 0,
-    modifiers: defaultModifiers(),
-    upgradeLevels: {},
+    modifiers: { ...source.modifiers },
+    upgradeLevels: { ...source.upgradeLevels },
     shake: 0,
-    weaponTier: 1,
-    arsenalMisses: 0,
+    weaponTier: source.weaponTier,
+    arsenalMisses: source.arsenalMisses,
     powerups: [],
     enemyFreeze: 0,
     baseShield: 0,
@@ -1410,21 +1430,46 @@ function resetGame(coopMode = state.coop) {
     player2Spawn: null,
     pendingRespawns: [],
     respawnClock: 0,
+    runClass,
+    runStartStage: source.stage,
   });
 
   document.body.dataset.playMode = coop ? 'coop' : 'solo';
-  loadStage({ preserveBaseHp: false, announce: true });
+  document.body.dataset.runClass = runClass;
+
+  loadStage({
+    preserveBaseHp: false,
+    announce: true,
+    baseHpOverride: source.baseHp,
+  });
+
+  if (!customLevel) {
+    showNotice(
+      checkpoint
+        ? `DEVAM · BÖLÜM ${state.stage}`
+        : runRecordLabel(state.runClass, state.runStartStage),
+      1.15
+    );
+  }
+
   UI.gameOver.classList.remove('show');
   UI.upgrade.classList.remove('show');
   UI.pause.classList.remove('show');
   UI.intro.classList.remove('show');
+  UI.stageSelect?.classList.remove('show');
 }
 
-function loadStage({ preserveBaseHp = true, announce = true } = {}) {
+function loadStage({
+  preserveBaseHp = true,
+  announce = true,
+  baseHpOverride = null,
+} = {}) {
   const level = currentLevel();
-  const previousHp = preserveBaseHp && state.base
-    ? Math.min(MAX_BASE_HP, state.base.hp + 1)
-    : MAX_BASE_HP;
+  const previousHp = Number.isFinite(baseHpOverride)
+    ? clamp(baseHpOverride, 1, MAX_BASE_HP)
+    : preserveBaseHp && state.base
+      ? Math.min(MAX_BASE_HP, state.base.hp + 1)
+      : MAX_BASE_HP;
 
   state.grid = buildMap(level);
   state.enemies = [];
