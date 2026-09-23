@@ -1554,6 +1554,8 @@ function pickUpgradeChoices(count) {
 }
 
 function chooseUpgrade(upgrade) {
+  if (!state.awaitingUpgrade) return;
+
   trackProgress({
     type: 'stage-completed',
     nextStage: state.stage + 1,
@@ -1756,6 +1758,7 @@ function handleDeaths() {
     trackProgress({
       type: 'enemy-defeated',
       boss: Boolean(enemy.spec?.boss),
+      score: state.score,
     });
     if (enemy.carrier) spawnPowerup(enemy.cx, enemy.cy);
     burst(
@@ -2398,6 +2401,8 @@ function syncUI() {
 }
 
 function endGame(reason) {
+  if (state.gameOver) return;
+
   state.running = false;
   state.gameOver = true;
   clearAllInput();
