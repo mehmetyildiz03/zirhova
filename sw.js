@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.11-audio-polish';
+const CACHE = 'zirhova-v0.12-profile-progression';
 const ASSETS = [
   './',
   './index.html',
@@ -13,6 +13,7 @@ const ASSETS = [
   './src/balanceSystem.js',
   './src/bossSystem.js',
   './src/audioSystem.js',
+  './src/progressionSystem.js',
   './src/editor.js',
   './editor.css',
   './editor.html',
