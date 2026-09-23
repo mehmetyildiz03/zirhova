@@ -6,6 +6,7 @@ import { freshActions, mergeActions, readGamepadActions, pickDirection } from '.
 import { NAV_STEP, isNavAlignedStart, navStartCandidates } from './navigationSystem.js';
 import { waveEnemyCount, buildEnemyRoster, carrierIndexForWave, shouldDropArsenal } from './balanceSystem.js';
 import { stageDoctrine, doctrineSpawnPlan } from './stageDoctrineSystem.js';
+import { stageEnvironment, terrainSpeedMultiplier, terrainPathCost } from './environmentSystem.js';
 import { BOSS_TYPE, SECOND_BOSS_TYPE, isBossWave, bossTypeForStage, bossName, bossStats, bossPhase, bossDamageResult, pincerVolleyDirections, bossAbilityCooldown, pincerVolleyWindup } from './bossSystem.js';
 import { createAudioSystem } from './audioSystem.js';
 import { PROFILE_STORAGE_KEY, LEGACY_PROGRESS_KEY, ACHIEVEMENTS, TANK_SKINS, migrateProfile, applyProfileEvent, selectSkin, skinById, unlockedSkinIds, achievementById } from './progressionSystem.js';
@@ -92,6 +93,9 @@ const COLORS = {
   waterLine: '#2c7797',
   ice: '#9dd8e8',
   iceLine: '#d9f6ff',
+  mud: '#554332',
+  mudDark: '#342a22',
+  mudLight: '#7a6247',
   brush: '#234f39',
   brushLight: '#397255',
   player: '#e8d35b',
@@ -399,16 +403,21 @@ class Tank extends RectEntity {
   updatePlayer(dt) {
     const actions = getPlayerActions(this.playerSlot);
     const dir = pickDirection(actions);
-    const onIce = tileAt(this.cx, this.cy)?.type === 'ice';
+    const terrainType = tileAt(this.cx, this.cy)?.type;
+    const onIce = terrainType === 'ice';
+    const moveMultiplier = terrainSpeedMultiplier(terrainType);
 
     if (dir) {
       if (this.alignForTurn(dir)) {
         this.dir = dir;
         this.momentumDir = dir;
         const d = DIRS[dir];
-        const moved = this.move(d.x * this.speed * dt, d.y * this.speed * dt);
+        const moved = this.move(
+          d.x * this.speed * moveMultiplier * dt,
+          d.y * this.speed * moveMultiplier * dt
+        );
         if (moved && !onIce) {
-          audio.track(this.playerSlot, this.speed / 162);
+          audio.track(this.playerSlot, (this.speed * moveMultiplier) / 162);
         }
       }
     } else if (onIce && this.momentumDir) {
@@ -441,7 +450,11 @@ class Tank extends RectEntity {
 
       if (this.applyAIDirection(yieldDir, 0.08)) {
         const d = DIRS[yieldDir];
-        const moved = this.move(d.x * this.speed * dt, d.y * this.speed * dt);
+        const moveMultiplier = terrainSpeedMultiplier(tileAt(this.cx, this.cy)?.type);
+        const moved = this.move(
+          d.x * this.speed * moveMultiplier * dt,
+          d.y * this.speed * moveMultiplier * dt
+        );
         if (moved) {
           this.stuckClock = 0;
           this.trafficBlockedClock = 0;
@@ -479,7 +492,11 @@ class Tank extends RectEntity {
     }
 
     const d = DIRS[this.dir];
-    const moved = this.move(d.x * this.speed * dt, d.y * this.speed * dt);
+    const moveMultiplier = terrainSpeedMultiplier(tileAt(this.cx, this.cy)?.type);
+    const moved = this.move(
+      d.x * this.speed * moveMultiplier * dt,
+      d.y * this.speed * moveMultiplier * dt
+    );
 
     if (moved) {
       this.stuckClock = 0;
@@ -1438,9 +1455,13 @@ function renderStageSelect() {
       const recordClass = stage === 1 ? 'YENİ TAM KOŞU' : 'SERBEST';
       const level = LEVELS[(stage - 1) % LEVELS.length];
       const doctrine = stageDoctrine(level.id, stage, LEVELS.length);
+      const environment = stageEnvironment(level.id, stage, LEVELS.length);
       const identity = doctrine
         ? `${level.name} · ${doctrine.label}`
         : level.name;
+      const environmentLine = environment
+        ? `<small>${environment.label}</small>`
+        : '';
       const checkpointRisk = stage === 1 && checkpoint
         ? '<small class="stage-card-warning">DEVAM SİLİNİR</small>'
         : '';
@@ -1448,6 +1469,7 @@ function renderStageSelect() {
         <button type="button" class="stage-card" data-stage="${stage}">
           <strong>B${stage}</strong>
           <small>${identity}</small>
+          ${environmentLine}
           <small>${recordClass}</small>
           ${checkpointRisk}
         </button>
@@ -1527,6 +1549,23 @@ function currentStageDoctrine() {
   if (state.customLevel) return null;
   const level = currentLevel();
   return stageDoctrine(level.id, state.stage, LEVELS.length);
+}
+
+function currentStageEnvironment() {
+  if (state.customLevel) return null;
+  const level = currentLevel();
+  return stageEnvironment(level.id, state.stage, LEVELS.length);
+}
+
+function applyCurrentStageEnvironment() {
+  const environment = currentStageEnvironment();
+  if (!environment) return;
+
+  for (const [x, y] of environment.mudCells || []) {
+    if (state.grid[y]?.[x]?.type === 'floor') {
+      state.grid[y][x] = makeTile('mud');
+    }
+  }
 }
 
 function activePlayers() {
@@ -1744,6 +1783,7 @@ function loadStage({
       : MAX_BASE_HP;
 
   state.grid = buildMap(level);
+  applyCurrentStageEnvironment();
   state.enemies = [];
   state.bullets = [];
   state.powerups = [];
@@ -1778,13 +1818,17 @@ function loadStage({
 
   if (announce) {
     const doctrine = currentStageDoctrine();
+    const environment = currentStageEnvironment();
+    const environmentSuffix = environment
+      ? ` · ${environment.shortLabel}`
+      : '';
     showNotice(
       state.customLevel
         ? `ÖZEL · ${level.name}`
         : doctrine
-          ? `B${state.stage} · ${level.name} · ${doctrine.label}`
-          : `BÖLÜM ${state.stage} · ${level.name}`,
-      doctrine ? 1.55 : 1.4
+          ? `B${state.stage} · ${level.name} · ${doctrine.label}${environmentSuffix}`
+          : `BÖLÜM ${state.stage} · ${level.name}${environmentSuffix}`,
+      doctrine || environment ? 1.55 : 1.4
     );
   }
   spawnWave();
@@ -2303,7 +2347,7 @@ function canOccupy(entity, x, y, { ignoreTanks = false } = {}) {
   for (let ty = top; ty <= bottom; ty++) {
     for (let tx = left; tx <= right; tx++) {
       const tile = state.grid[ty]?.[tx];
-      if (!tile || ['floor', 'brush', 'ice'].includes(tile.type)) continue;
+      if (!tile || ['floor', 'brush', 'ice', 'mud'].includes(tile.type)) continue;
 
       if (tile.type === 'brick') {
         const tileX = tx * TILE;
@@ -2494,6 +2538,7 @@ function findPathDirection(source, target, brickCost = 4) {
       } else if (tile.type === 'steel' || tile.type === 'breakableSteel' || tile.type === 'water') continue;
       else if (tile.type === 'brush') cost = 1.08;
       else if (tile.type === 'ice') cost = 1.04;
+      else if (tile.type === 'mud') cost = terrainPathCost(tile.type);
 
       const key = cellKey(nx, ny);
       cost += enemyTrafficCost(source, nx, ny);
@@ -2746,6 +2791,29 @@ function drawTerrain() {
         ctx.moveTo(px + 30, py + 39);
         ctx.lineTo(px + 42, py + 34);
         ctx.stroke();
+      } else if (tile.type === 'mud') {
+        ctx.fillStyle = COLORS.mud;
+        ctx.fillRect(px + 1, py + 1, TILE - 2, TILE - 2);
+
+        ctx.fillStyle = COLORS.mudDark;
+        for (let i = 0; i < 6; i++) {
+          const ox = 7 + ((i * 13 + x * 5 + y * 7) % 34);
+          const oy = 8 + ((i * 17 + x * 11 + y * 3) % 32);
+          ctx.beginPath();
+          ctx.ellipse(px + ox, py + oy, 5 + (i % 3), 3 + (i % 2), 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.strokeStyle = COLORS.mudLight;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.55;
+        ctx.beginPath();
+        ctx.moveTo(px + 8, py + 13);
+        ctx.lineTo(px + 39, py + 20);
+        ctx.moveTo(px + 9, py + 31);
+        ctx.lineTo(px + 38, py + 37);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
       } else if (tile.type === 'water') {
         ctx.fillStyle = COLORS.water;
         ctx.fillRect(px, py, TILE, TILE);
@@ -3452,6 +3520,21 @@ if (window.location.hostname === '127.0.0.1') {
         cycle: doctrine.cycle,
       } : null;
     })(),
+    environment: (() => {
+      const environment = currentStageEnvironment();
+      return environment ? {
+        id: environment.id,
+        title: environment.title,
+        label: environment.label,
+        advanced: environment.advanced,
+        cycle: environment.cycle,
+        mudCells: environment.mudCells.map(cell => [...cell]),
+      } : null;
+    })(),
+    terrainCounts: state.grid.flat().reduce((counts, tile) => {
+      counts[tile.type] = (counts[tile.type] || 0) + 1;
+      return counts;
+    }, {}),
     runResumed: state.runResumed,
     runEnemiesDefeated: state.runEnemiesDefeated,
     runBossesDefeated: state.runBossesDefeated,
@@ -3612,6 +3695,11 @@ if (window.location.hostname === '127.0.0.1') {
 
     setP1Momentum(dir) {
       if (state.player) state.player.momentumDir = dir;
+      return testSnapshot();
+    },
+
+    setTouchForTest(patch = {}) {
+      Object.assign(touchInput, freshActions(), patch);
       return testSnapshot();
     },
 
