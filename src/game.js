@@ -2834,6 +2834,9 @@ function trackProgress(event, { announce = true } = {}) {
   ) {
     renderProfile();
   }
+
+  refreshRunEntryUI();
+  if (UI.stageSelect?.classList.contains('show')) renderStageSelect();
   syncUI();
   return result;
 }
@@ -2842,8 +2845,11 @@ function renderProfile() {
   if (!UI.profileStats || !UI.profileSkins || !UI.profileAchievements) return;
 
   UI.profileStats.innerHTML = [
-    ['EN İYİ SKOR', progress.bestScore],
-    ['EN İYİ BÖLÜM', `B${progress.bestStage}`],
+    ['TAM KOŞU REKORU', progress.bestScore],
+    ['SERBEST REKOR', progress.bestDeploymentScore],
+    ['SOLO TAM KOŞU', progress.bestSoloScore],
+    ['CO-OP TAM KOŞU', progress.bestCoopScore],
+    ['EN İLERİ BÖLÜM', `B${progress.bestStage}`],
     ['KOŞU', progress.runs],
     ['İMHA', progress.enemiesDefeated],
     ['BOSS', progress.bossesDefeated],
