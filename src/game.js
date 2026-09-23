@@ -5,6 +5,7 @@ import { validateCustomLevel } from './levelSchema.js';
 import { freshActions, mergeActions, readGamepadActions, pickDirection } from './controllerSystem.js';
 import { NAV_STEP, isNavAlignedStart, navStartCandidates } from './navigationSystem.js';
 import { waveEnemyCount, buildEnemyRoster, carrierIndexForWave, shouldDropArsenal } from './balanceSystem.js';
+import { stageDoctrine, doctrineSpawnPlan } from './stageDoctrineSystem.js';
 import { BOSS_TYPE, isBossWave, bossStats, bossPhase, bossDamageResult } from './bossSystem.js';
 import { createAudioSystem } from './audioSystem.js';
 import { PROFILE_STORAGE_KEY, LEGACY_PROGRESS_KEY, ACHIEVEMENTS, TANK_SKINS, migrateProfile, applyProfileEvent, selectSkin, skinById, unlockedSkinIds, achievementById } from './progressionSystem.js';
@@ -1236,12 +1237,18 @@ function renderStageSelect() {
   UI.stageSelectGrid.innerHTML = selectableStages(progress.bestStage)
     .map(stage => {
       const recordClass = stage === 1 ? 'YENİ TAM KOŞU' : 'SERBEST';
+      const level = LEVELS[(stage - 1) % LEVELS.length];
+      const doctrine = stageDoctrine(level.id, stage, LEVELS.length);
+      const identity = doctrine
+        ? `${level.name} · ${doctrine.label}`
+        : level.name;
       const checkpointRisk = stage === 1 && checkpoint
         ? '<small class="stage-card-warning">DEVAM SİLİNİR</small>'
         : '';
       return `
         <button type="button" class="stage-card" data-stage="${stage}">
           <strong>B${stage}</strong>
+          <small>${identity}</small>
           <small>${recordClass}</small>
           ${checkpointRisk}
         </button>
@@ -1315,6 +1322,12 @@ const state = {
 
 function currentLevel() {
   return state.customLevel || LEVELS[(state.stage - 1) % LEVELS.length];
+}
+
+function currentStageDoctrine() {
+  if (state.customLevel) return null;
+  const level = currentLevel();
+  return stageDoctrine(level.id, state.stage, LEVELS.length);
 }
 
 function activePlayers() {
@@ -1565,11 +1578,14 @@ function loadStage({
   }
 
   if (announce) {
+    const doctrine = currentStageDoctrine();
     showNotice(
       state.customLevel
         ? `ÖZEL · ${level.name}`
-        : `BÖLÜM ${state.stage} · ${level.name}`,
-      1.4
+        : doctrine
+          ? `B${state.stage} · ${level.name} · ${doctrine.label}`
+          : `BÖLÜM ${state.stage} · ${level.name}`,
+      doctrine ? 1.55 : 1.4
     );
   }
   spawnWave();
@@ -1578,17 +1594,26 @@ function loadStage({
 
 function spawnWave() {
   const level = currentLevel();
+  const doctrine = currentStageDoctrine();
   const count = waveEnemyCount(state.stage, state.waveInStage);
   const roster = buildEnemyRoster({
     stage: state.stage,
     wave: state.wave,
     waveInStage: state.waveInStage,
     count,
+    weightMultipliers: doctrine?.weightMultipliers,
   });
   const carrierIndex = carrierIndexForWave(count, state.waveInStage);
+  const spawnPlan = doctrineSpawnPlan({
+    levelId: level.id,
+    stage: state.stage,
+    levelCount: LEVELS.length,
+    enemySpawns: level.enemySpawns,
+    count: roster.length,
+  });
 
   state.waveSpawnQueue = roster.map((type, i) => ({
-    spawn: level.enemySpawns[i % level.enemySpawns.length],
+    spawn: spawnPlan[i] || level.enemySpawns[i % level.enemySpawns.length],
     type,
     carrier: i === carrierIndex,
   }));
@@ -3214,6 +3239,16 @@ if (window.location.hostname === '127.0.0.1') {
     },
     runClass: state.runClass,
     runStartStage: state.runStartStage,
+    doctrine: (() => {
+      const doctrine = currentStageDoctrine();
+      return doctrine ? {
+        id: doctrine.id,
+        title: doctrine.title,
+        label: doctrine.label,
+        advanced: doctrine.advanced,
+        cycle: doctrine.cycle,
+      } : null;
+    })(),
     runResumed: state.runResumed,
     runEnemiesDefeated: state.runEnemiesDefeated,
     runBossesDefeated: state.runBossesDefeated,

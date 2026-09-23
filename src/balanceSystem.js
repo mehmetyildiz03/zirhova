@@ -72,10 +72,20 @@ export function buildEnemyRoster({
   waveInStage,
   count = waveEnemyCount(stage, waveInStage),
   rng = Math.random,
+  weightMultipliers = null,
 } = {}) {
   const w = waveDifficulty(wave);
   const safeCount = clamp(Math.floor(Number(count) || 0), 1, 11);
-  const weights = enemyWeights(w);
+  const baseWeights = enemyWeights(w);
+  const weights = Object.fromEntries(
+    TYPE_ORDER.map(type => {
+      const rawMultiplier = Number(weightMultipliers?.[type]);
+      const multiplier = Number.isFinite(rawMultiplier)
+        ? Math.max(0, rawMultiplier)
+        : 1;
+      return [type, baseWeights[type] * multiplier];
+    })
+  );
   const caps = enemyCaps(w, safeCount);
   const roster = [];
   const counts = Object.fromEntries(TYPE_ORDER.map(type => [type, 0]));

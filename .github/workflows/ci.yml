@@ -22,6 +22,7 @@ jobs:
           node --check src/controllerSystem.js
           node --check src/navigationSystem.js
           node --check src/balanceSystem.js
+          node --check src/stageDoctrineSystem.js
           node --check src/bossSystem.js
           node --check src/audioSystem.js
           node --check src/progressionSystem.js
@@ -42,6 +43,8 @@ jobs:
         run: node scripts/validate-navigation.mjs
       - name: Validate balance curve
         run: node scripts/validate-balance.mjs
+      - name: Validate stage doctrines
+        run: node scripts/validate-stage-doctrines.mjs
       - name: Validate boss mechanics
         run: node scripts/validate-boss.mjs
       - name: Validate audio recipes
@@ -62,6 +65,7 @@ jobs:
           test -f src/controllerSystem.js
           test -f src/navigationSystem.js
           test -f src/balanceSystem.js
+          test -f src/stageDoctrineSystem.js
           test -f src/bossSystem.js
           test -f src/audioSystem.js
           test -f src/progressionSystem.js
@@ -80,6 +84,7 @@ jobs:
           export CHROME_PATH="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           test -n "$CHROME_PATH"
           node scripts/entry-menu-smoke.mjs
+          node scripts/stage-doctrine-smoke.mjs
           node scripts/responsive-smoke.mjs
           node scripts/gameplay-smoke.mjs
           node scripts/navigation-smoke.mjs

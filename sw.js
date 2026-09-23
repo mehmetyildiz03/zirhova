@@ -1,4 +1,4 @@
-const CACHE = 'zirhova-v0.14-run-summary';
+const CACHE = 'zirhova-v0.15-stage-doctrines';
 const ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const ASSETS = [
   './src/controllerSystem.js',
   './src/navigationSystem.js',
   './src/balanceSystem.js',
+  './src/stageDoctrineSystem.js',
   './src/bossSystem.js',
   './src/audioSystem.js',
   './src/progressionSystem.js',
