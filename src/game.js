@@ -2650,15 +2650,22 @@ function trackProgress(event, { announce = true } = {}) {
   progress = result.profile;
   saveProgress(progress);
 
-  if (announce && result.unlockedAchievements.length) {
+  if (announce && (result.unlockedAchievements.length || result.unlockedSkins.length)) {
+    const parts = [];
     const achievement = achievementById(result.unlockedAchievements[0]);
-    if (achievement) showNotice(`BAŞARI · ${achievement.title}`, 1.2);
-  } else if (announce && result.unlockedSkins.length) {
-    const skin = skinById(result.unlockedSkins[0]);
-    showNotice(`BOYA AÇILDI · ${skin.name}`, 1.15);
+    const skin = result.unlockedSkins.length ? skinById(result.unlockedSkins[0]) : null;
+    if (achievement) parts.push(`BAŞARI · ${achievement.title}`);
+    if (skin) parts.push(`BOYA · ${skin.name}`);
+    if (parts.length) showNotice(parts.join(' · '), 1.35);
   }
 
-  renderProfile();
+  if (
+    UI.profile?.classList.contains('show') ||
+    result.unlockedAchievements.length ||
+    result.unlockedSkins.length
+  ) {
+    renderProfile();
+  }
   syncUI();
   return result;
 }
